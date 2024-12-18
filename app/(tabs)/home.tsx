@@ -1,5 +1,4 @@
-// app/(tabs)/home.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,31 +7,108 @@ import {
   Modal,
   FlatList,
   SafeAreaView,
-  Image,
+  TextInput,
+  Image, // Importing Image component to display preview of selected image
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
-import SettingsIcon from "../../components/SettingsIcon"; // Go back two levels, then into components
 
+// Import Firebase functions and database reference
+import { ref, get, push, set, remove, update } from "firebase/database"; // Firebase Realtime Database functions
+import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
+import * as ImagePicker from "expo-image-picker"; // Image picker for uploading images
+
+// Type for Folder
+interface Folder {
+  id: string;
+  name: string;
+}
 const Home = () => {
   const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
-  const [folders, setFolders] = useState([
-    { id: "1", name: "Vacation Photos" },
-    { id: "2", name: "Family Events" },
-    { id: "3", name: "Personal Projects" },
-  ]); // Dummy data for folders
-  const [images, setImages] = useState([
-    { id: "1", uri: "https://via.placeholder.com/150" },
-    { id: "2", uri: "https://via.placeholder.com/150" },
-    { id: "3", uri: "https://via.placeholder.com/150" },
-  ]); // Dummy data for uploaded images
+  const [folders, setFolders] = useState<Folder[]>([]); // State for folders
+  const [folderName, setFolderName] = useState(""); // State for storing the folder name input
+  const [renameModalVisible, setRenameModalVisible] = useState(false); // State for renaming modal visibility
+  const [currentFolderId, setCurrentFolderId] = useState(""); // State to store the id of the folder being renamed
+  const [newFolderName, setNewFolderName] = useState(""); // State to store the new folder name
+  const [imageUri, setImageUri] = useState<string | null>(null); // State for the selected image URI
+  const [isFolderNameVisible, setIsFolderNameVisible] = useState(false); // State to toggle folder name input field
 
-  const toggleModal = () => {
-    setModalVisible(!modalVisible);
+  // Fetch folders when the component mounts
+  useEffect(() => {
+    const loadFolders = async () => {
+      const folderData = await fetchFolders(); // Fetch folders from Firebase
+      setFolders(folderData); // Update state with fetched folders
+    };
+
+    loadFolders(); // Fetch folders when the component mounts
+  }, []); // Empty dependency array means it runs only once after the component mounts
+
+  // Function to fetch folders from Firebase Realtime Database
+  const fetchFolders = async (): Promise<Folder[]> => {
+    try {
+      const folderRef = ref(database, "folders"); // Reference to the "folders" node in Firebase
+      const snapshot = await get(folderRef); // Get data from the database
+
+      if (snapshot.exists()) {
+        const folders = snapshot.val(); // Get all folders as an object
+        return Object.keys(folders).map((key) => ({
+          id: key,
+          name: folders[key].name, // Folder name from database
+        }));
+      } else {
+        console.log("No folders found.");
+        return [];
+      }
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+      return [];
+    }
   };
 
-  const handleFavoritePress = () => {
-    // Placeholder function for future favorite functionality
-    console.log("Heart icon pressed! Implement functionality for favorites.");
+  // Function to create a new folder in Firebase
+  const handleCreateFolder = async () => {
+    if (folderName.trim() === "") {
+      console.log("Folder name is required.");
+      return;
+    }
+
+    try {
+      const folderRef = push(ref(database, "folders")); // Create a new reference for the folder
+      await set(folderRef, { name: folderName, createdAt: Date.now() }); // Save folder data to Firebase
+      console.log("Folder created successfully!");
+
+      // Fetch updated folders after creation
+      const folderData = await fetchFolders();
+      setFolders(folderData); // Update folders state with new data
+      setFolderName(""); // Clear input field after folder creation
+      setIsFolderNameVisible(false); // Hide input field
+      toggleModal(); // Close modal
+    } catch (error) {
+      console.error("Error creating folder:", error);
+    }
+  };
+
+  // Function to toggle the modal for creating a folder
+  const toggleModal = () => {
+    setModalVisible(!modalVisible); // Toggle the state of modal visibility
+  };
+
+  // Function to pick an image from the device
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status === "granted") {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Corrected line
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setImageUri(result.uri); // Save the selected image URI
+      }
+    } else {
+      console.log("Permission to access media library is required.");
+    }
   };
 
   return (
@@ -54,23 +130,6 @@ const Home = () => {
               <Text style={styles.folderText}>{item.name}</Text>
             </View>
           )}
-          contentContainerStyle={styles.foldersList}
-        />
-      </View>
-
-      {/* Displaying Uploaded Images Below Folders */}
-      <View style={styles.imagesContainer}>
-        <Text style={styles.imagesTitle}>Your Uploaded Images:</Text>
-        <FlatList
-          data={images}
-          keyExtractor={(item) => item.id}
-          horizontal
-          renderItem={({ item }) => (
-            <View style={styles.imageItem}>
-              <Image source={{ uri: item.uri }} style={styles.image} />
-            </View>
-          )}
-          contentContainerStyle={styles.imagesList}
         />
       </View>
 
@@ -79,15 +138,7 @@ const Home = () => {
         <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
       </TouchableOpacity>
 
-      {/* Heart Icon for Favorites */}
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={handleFavoritePress}
-      >
-        <MaterialCommunityIcons name="heart" size={30} color="white" />
-      </TouchableOpacity>
-
-      {/* Modal for Folder Creation */}
+      {/* Create Folder Modal */}
       <Modal
         transparent={true}
         visible={modalVisible}
@@ -96,15 +147,62 @@ const Home = () => {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Choose Action</Text>
-            <TouchableOpacity onPress={toggleModal} style={styles.modalButton}>
-              <MaterialCommunityIcons name="folder" size={20} color="white" />
-              <Text style={styles.modalButtonText}>Create a New Folder</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={toggleModal} style={styles.modalButton}>
+            <Text style={styles.modalTitle}>Create a Folder</Text>
+
+            {!isFolderNameVisible ? (
+              // Create Folder Button (initial view)
+              <TouchableOpacity
+                onPress={() => setIsFolderNameVisible(true)}
+                style={styles.modalButton}
+              >
+                <MaterialCommunityIcons name="folder" size={20} color="white" />
+                <Text style={styles.modalButtonText}>Create Folder</Text>
+              </TouchableOpacity>
+            ) : (
+              // Folder Name Input (after clicking "Create Folder")
+              <>
+                <TextInput
+                  style={styles.folderInput}
+                  placeholder="Enter folder name"
+                  value={folderName}
+                  onChangeText={setFolderName} // Update folderName state
+                />
+                <TouchableOpacity
+                  onPress={handleCreateFolder}
+                  style={styles.modalButton}
+                >
+                  <MaterialCommunityIcons
+                    name="folder"
+                    size={20}
+                    color="white"
+                  />
+                  <Text style={styles.modalButtonText}>Create Folder</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* Upload Image Button */}
+            <TouchableOpacity onPress={pickImage} style={styles.modalButton}>
               <MaterialCommunityIcons name="image" size={20} color="white" />
-              <Text style={styles.modalButtonText}>Upload an Image</Text>
+              <Text style={styles.modalButtonText}>Upload Image</Text>
             </TouchableOpacity>
+
+            {imageUri && (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+              </View>
+            )}
+
+            {imageUri && (
+              <TouchableOpacity
+                onPress={uploadImage}
+                style={styles.modalButton}
+              >
+                <MaterialCommunityIcons name="upload" size={20} color="white" />
+                <Text style={styles.modalButtonText}>Upload to Firebase</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity onPress={toggleModal} style={styles.cancelButton}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -148,12 +246,12 @@ const styles = StyleSheet.create({
     marginTop: 150,
     width: "100%",
     paddingHorizontal: 20,
-    borderWidth: 1, // Border for the "Your Memories" section
-    borderColor: "#444444", // Dark border color
-    borderRadius: 8, // Rounded corners for the border
-    backgroundColor: "#2c2c2c", // Dark background for the section
+    borderWidth: 1,
+    borderColor: "#444444",
+    borderRadius: 8,
+    backgroundColor: "#2c2c2c",
     padding: 20,
-    shadowColor: "#000", // Shadow for the section
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -171,53 +269,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   folderText: {
     color: "white",
     fontSize: 16,
-    marginLeft: 10,
   },
-  foldersList: {
-    paddingBottom: 20,
-  },
-  imagesContainer: {
-    marginTop: 30, // Space between folders and images
+  folderInput: {
     width: "100%",
-    paddingHorizontal: 20,
-  },
-  imagesTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "white",
-    marginBottom: 20,
-  },
-  imageItem: {
-    marginRight: 15, // Space between images
-  },
-  image: {
-    width: 150,
-    height: 150,
+    padding: 10,
+    backgroundColor: "#444444",
     borderRadius: 8,
-    backgroundColor: "#444444", // Background color in case the image doesn't load
-  },
-  imagesList: {
-    paddingBottom: 20,
+    color: "white",
+    marginBottom: 15,
   },
   floatingButton: {
     position: "absolute",
     bottom: 40,
-    right: 40,
-    backgroundColor: "#333333",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    elevation: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  favoriteButton: {
-    position: "absolute",
-    bottom: 100, // Adjust the bottom position so it's above the Create Folder button
     right: 40,
     backgroundColor: "#333333",
     borderRadius: 25,
@@ -234,48 +302,55 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: 320,
+    backgroundColor: "#333333",
     padding: 20,
-    backgroundColor: "#2c2c2c",
-    borderRadius: 15,
+    borderRadius: 8,
+    width: "80%",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.5,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "bold",
     color: "white",
-    marginBottom: 25,
+    marginBottom: 20,
   },
   modalButton: {
     flexDirection: "row",
     backgroundColor: "#444444",
     padding: 15,
     borderRadius: 8,
-    marginVertical: 5,
-    alignItems: "center",
+    marginBottom: 10,
     width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalButtonText: {
     color: "white",
-    marginLeft: 10,
     fontSize: 16,
+    marginLeft: 10,
   },
   cancelButton: {
-    marginTop: 20,
-    backgroundColor: "#333333", // Dark color for the Cancel button
-    padding: 12,
+    backgroundColor: "#999999",
+    padding: 10,
     borderRadius: 8,
     width: "100%",
+    justifyContent: "center",
     alignItems: "center",
   },
-
   cancelButtonText: {
     color: "white",
     fontSize: 16,
+  },
+  imagePreviewContainer: {
+    marginTop: 10,
+    marginBottom: 10,
+    width: "100%",
+    alignItems: "center",
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
   },
 });
 
