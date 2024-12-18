@@ -32,6 +32,7 @@ const Home = () => {
   const [newFolderName, setNewFolderName] = useState(""); // State to store the new folder name
   const [imageUri, setImageUri] = useState<string | null>(null); // State for the selected image URI
   const [isFolderNameVisible, setIsFolderNameVisible] = useState(false); // State to toggle folder name input field
+  const [images, setImages] = useState<any[]>([]); // State for images without folders
 
   // Fetch folders when the component mounts
   useEffect(() => {
@@ -41,6 +42,16 @@ const Home = () => {
     };
 
     loadFolders(); // Fetch folders when the component mounts
+
+    // Fetch images when the component mounts
+    const loadImages = async () => {
+      const imagesData = await fetchImages();
+      // Filter images without a folderId
+      const unassignedImages = imagesData.filter((image) => !image.folderId);
+      setImages(unassignedImages);
+    };
+
+    loadImages(); // Fetch images on component mount
   }, []); // Empty dependency array means it runs only once after the component mounts
 
   // Function to fetch folders from Firebase Realtime Database
@@ -62,6 +73,29 @@ const Home = () => {
       }
     } catch (error) {
       console.error("Error fetching folders:", error);
+      return [];
+    }
+  };
+
+  // Function to fetch images from Firebase
+  const fetchImages = async (): Promise<any[]> => {
+    try {
+      const imagesRef = ref(database, "images"); // Reference to images node in Firebase
+      const snapshot = await get(imagesRef); // Get data from Firebase
+
+      if (snapshot.exists()) {
+        const imagesData = snapshot.val();
+        return Object.keys(imagesData).map((key) => ({
+          id: key,
+          uri: imagesData[key].uri, // Image URI from Firebase
+          folderId: imagesData[key].folderId, // If the image is not in a folder, folderId will be null or undefined
+        }));
+      } else {
+        console.log("No images found.");
+        return [];
+      }
+    } catch (error) {
+      console.error("Error fetching images:", error);
       return [];
     }
   };
@@ -160,9 +194,10 @@ const Home = () => {
       {/* Memoria Logo and Tagline (Top-Left) */}
       <View style={styles.logoContainer}>
         <Text style={styles.logo}>Memoria</Text>
-        <Text style={styles.tagline}>Let's keep your memories organized</Text>
+        <Text style={styles.tagline}>
+          Let's keep your memories organized and treasured.
+        </Text>
       </View>
-
       {/* Displaying Folders Section with Border and Shadow */}
       <View style={styles.foldersContainer}>
         <Text style={styles.foldersTitle}>Here are your memories so far:</Text>
@@ -215,11 +250,30 @@ const Home = () => {
         />
       </View>
 
+      <SafeAreaView style={styles.container}>
+        {/* Existing code for folders section */}
+
+        {/* Photo Gallery Section */}
+        <View style={styles.galleryContainer}>
+          <Text style={styles.galleryTitle}>Your no folder images:</Text>
+          <FlatList
+            data={images}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: item.uri }} style={styles.image} />
+              </View>
+            )}
+            contentContainerStyle={styles.galleryContent}
+            horizontal={false} // Makes the gallery scroll vertically
+          />
+        </View>
+      </SafeAreaView>
+
       {/* Create Folder Button */}
       <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
         <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
       </TouchableOpacity>
-
       {/* Rename Folder Modal */}
       <Modal
         transparent={true}
@@ -255,7 +309,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       {/* Create Folder Modal */}
       <Modal
         transparent={true}
@@ -333,7 +386,7 @@ const styles = StyleSheet.create({
     color: "white",
   },
   tagline: {
-    fontSize: 16,
+    fontSize: 13,
     color: "white",
     marginTop: 10,
     marginBottom: 30,
@@ -461,6 +514,39 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 8,
+  },
+  galleryContainer: {
+    marginTop: 40,
+    width: "100%",
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "#444444",
+    borderRadius: 8,
+    backgroundColor: "#2c2c2c",
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  galleryTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+    marginBottom: 20,
+  },
+  galleryContent: {
+    flexDirection: "column", // Ensures items are displayed vertically
+    alignItems: "center",
+  },
+  imageContainer: {
+    marginBottom: 10, // Space between images
+  },
+  image: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    marginRight: 10, // Space between images in the gallery
   },
 });
 
