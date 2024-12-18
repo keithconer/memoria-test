@@ -8,7 +8,7 @@ import {
   FlatList,
   SafeAreaView,
   TextInput,
-  Image, // Importing Image component to display preview of selected image
+  Image,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
 
@@ -22,6 +22,7 @@ interface Folder {
   id: string;
   name: string;
 }
+
 const Home = () => {
   const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
   const [folders, setFolders] = useState<Folder[]>([]); // State for folders
@@ -111,6 +112,43 @@ const Home = () => {
     }
   };
 
+  // Function to handle the renaming of a folder
+  const handleRenameFolder = async () => {
+    if (newFolderName.trim() === "") {
+      console.log("New folder name is required.");
+      return;
+    }
+
+    try {
+      const folderRef = ref(database, `folders/${currentFolderId}`); // Reference to the folder to be renamed
+      await update(folderRef, { name: newFolderName }); // Update the folder name in Firebase
+      console.log("Folder renamed successfully!");
+
+      // Fetch updated folders after renaming
+      const folderData = await fetchFolders();
+      setFolders(folderData); // Update folders state with new data
+      setRenameModalVisible(false); // Close the rename modal
+      setNewFolderName(""); // Clear new folder name input
+    } catch (error) {
+      console.error("Error renaming folder:", error);
+    }
+  };
+
+  // Function to handle folder deletion
+  const handleDeleteFolder = async (id: string) => {
+    try {
+      const folderRef = ref(database, `folders/${id}`); // Reference to the folder to be deleted
+      await remove(folderRef); // Delete the folder from Firebase
+      console.log("Folder deleted successfully!");
+
+      // Fetch updated folders after deletion
+      const folderData = await fetchFolders();
+      setFolders(folderData); // Update folders state with new data
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Memoria Logo and Tagline (Top-Left) */}
@@ -128,6 +166,32 @@ const Home = () => {
           renderItem={({ item }) => (
             <View style={styles.folderItem}>
               <Text style={styles.folderText}>{item.name}</Text>
+              <View style={styles.folderActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCurrentFolderId(item.id);
+                    setNewFolderName(item.name);
+                    setRenameModalVisible(true);
+                  }}
+                  style={styles.folderActionButton}
+                >
+                  <MaterialCommunityIcons
+                    name="pencil"
+                    size={20}
+                    color="white"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDeleteFolder(item.id)}
+                  style={styles.folderActionButton}
+                >
+                  <MaterialCommunityIcons
+                    name="delete"
+                    size={20}
+                    color="white"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         />
@@ -137,6 +201,42 @@ const Home = () => {
       <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
         <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
       </TouchableOpacity>
+
+      {/* Rename Folder Modal */}
+      <Modal
+        transparent={true}
+        visible={renameModalVisible}
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Rename Folder</Text>
+
+            <TextInput
+              style={styles.folderInput}
+              placeholder="Enter new folder name"
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+            />
+
+            <TouchableOpacity
+              onPress={handleRenameFolder}
+              style={styles.modalButton}
+            >
+              <MaterialCommunityIcons name="folder" size={20} color="white" />
+              <Text style={styles.modalButtonText}>Rename</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setRenameModalVisible(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Create Folder Modal */}
       <Modal
@@ -194,10 +294,7 @@ const Home = () => {
             )}
 
             {imageUri && (
-              <TouchableOpacity
-                onPress={uploadImage}
-                style={styles.modalButton}
-              >
+              <TouchableOpacity onPress={() => {}} style={styles.modalButton}>
                 <MaterialCommunityIcons name="upload" size={20} color="white" />
                 <Text style={styles.modalButtonText}>Upload to Firebase</Text>
               </TouchableOpacity>
@@ -282,6 +379,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: "white",
     marginBottom: 15,
+  },
+  folderActions: {
+    flexDirection: "row", // This keeps the buttons in a horizontal line
+    alignItems: "center", // Align them vertically in the center
+    justifyContent: "space-between", // Optional: to give space between buttons if needed
+  },
+
+  folderActionButton: {
+    marginLeft: 10, // Adds space between the buttons
   },
   floatingButton: {
     position: "absolute",
