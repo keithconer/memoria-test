@@ -206,15 +206,32 @@ const Home = () => {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             // Format the createdAt date using JavaScript's Date object
-            const formattedDate = new Date(item.createdAt).toLocaleDateString(); // Format the date
+            const folderDate = new Date(item.createdAt);
+
+            // Format the date to get the weekday and time (e.g., "Tuesday, 5:00 PM")
+            const formattedDate = folderDate.toLocaleDateString("en-US", {
+              weekday: "long", // Full weekday name (e.g., "Tuesday")
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+
+            // Format the time (e.g., "5:00 PM")
+            const formattedTime = folderDate.toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true, // Ensures 12-hour format (AM/PM)
+            });
 
             return (
               <View style={styles.folderItem}>
                 {/* Folder Name and Date Section */}
                 <View style={styles.folderTextContainer}>
                   <Text style={styles.folderText}>{item.name}</Text>
-                  <Text style={styles.folderDate}>{formattedDate}</Text>{" "}
-                  {/* Display date next to folder name */}
+                  <Text
+                    style={styles.folderDate}
+                  >{`${formattedDate}, ${formattedTime}`}</Text>{" "}
+                  {/* Display date and time */}
                 </View>
 
                 {/* Folder Actions (edit and delete buttons) */}
@@ -249,26 +266,6 @@ const Home = () => {
           }}
         />
       </View>
-
-      <SafeAreaView style={styles.container}>
-        {/* Existing code for folders section */}
-
-        {/* Photo Gallery Section */}
-        <View style={styles.galleryContainer}>
-          <Text style={styles.galleryTitle}>Your no folder images:</Text>
-          <FlatList
-            data={images}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.imageContainer}>
-                <Image source={{ uri: item.uri }} style={styles.image} />
-              </View>
-            )}
-            contentContainerStyle={styles.galleryContent}
-            horizontal={false} // Makes the gallery scroll vertically
-          />
-        </View>
-      </SafeAreaView>
 
       {/* Create Folder Button */}
       <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
