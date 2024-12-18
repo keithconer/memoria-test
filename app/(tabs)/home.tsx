@@ -54,6 +54,7 @@ const Home = () => {
         return Object.keys(folders).map((key) => ({
           id: key,
           name: folders[key].name, // Folder name from database
+          createdAt: folders[key].createdAt, // Folder creation date
         }));
       } else {
         console.log("No folders found.");
@@ -73,8 +74,13 @@ const Home = () => {
     }
 
     try {
-      const folderRef = push(ref(database, "folders")); // Create a new reference for the folder
-      await set(folderRef, { name: folderName, createdAt: Date.now() }); // Save folder data to Firebase
+      const folderRef = push(ref(database, "folders"));
+      const newFolder = {
+        name: folderName,
+        createdAt: Date.now(), // This line records the creation time
+      };
+      await set(folderRef, newFolder); // Save folder data to Firebase
+
       console.log("Folder created successfully!");
 
       // Fetch updated folders after creation
@@ -163,37 +169,49 @@ const Home = () => {
         <FlatList
           data={folders}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.folderItem}>
-              <Text style={styles.folderText}>{item.name}</Text>
-              <View style={styles.folderActions}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setCurrentFolderId(item.id);
-                    setNewFolderName(item.name);
-                    setRenameModalVisible(true);
-                  }}
-                  style={styles.folderActionButton}
-                >
-                  <MaterialCommunityIcons
-                    name="pencil"
-                    size={20}
-                    color="white"
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDeleteFolder(item.id)}
-                  style={styles.folderActionButton}
-                >
-                  <MaterialCommunityIcons
-                    name="delete"
-                    size={20}
-                    color="white"
-                  />
-                </TouchableOpacity>
+          renderItem={({ item }) => {
+            // Format the createdAt date using JavaScript's Date object
+            const formattedDate = new Date(item.createdAt).toLocaleDateString(); // Format the date
+
+            return (
+              <View style={styles.folderItem}>
+                {/* Folder Name and Date Section */}
+                <View style={styles.folderTextContainer}>
+                  <Text style={styles.folderText}>{item.name}</Text>
+                  <Text style={styles.folderDate}>{formattedDate}</Text>{" "}
+                  {/* Display date next to folder name */}
+                </View>
+
+                {/* Folder Actions (edit and delete buttons) */}
+                <View style={styles.folderActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setCurrentFolderId(item.id);
+                      setNewFolderName(item.name);
+                      setRenameModalVisible(true);
+                    }}
+                    style={styles.folderActionButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="pencil"
+                      size={20}
+                      color="white"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteFolder(item.id)}
+                    style={styles.folderActionButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="delete"
+                      size={20}
+                      color="white"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       </View>
 
@@ -259,14 +277,15 @@ const Home = () => {
                 <Text style={styles.modalButtonText}>Create Folder</Text>
               </TouchableOpacity>
             ) : (
-              // Folder Name Input (after clicking "Create Folder")
+              // Folder Name Input (when button is clicked)
               <>
                 <TextInput
                   style={styles.folderInput}
                   placeholder="Enter folder name"
                   value={folderName}
-                  onChangeText={setFolderName} // Update folderName state
+                  onChangeText={setFolderName}
                 />
+
                 <TouchableOpacity
                   onPress={handleCreateFolder}
                   style={styles.modalButton}
@@ -276,30 +295,10 @@ const Home = () => {
                     size={20}
                     color="white"
                   />
-                  <Text style={styles.modalButtonText}>Create Folder</Text>
+                  <Text style={styles.modalButtonText}>Create</Text>
                 </TouchableOpacity>
               </>
             )}
-
-            {/* Upload Image Button */}
-            <TouchableOpacity onPress={pickImage} style={styles.modalButton}>
-              <MaterialCommunityIcons name="image" size={20} color="white" />
-              <Text style={styles.modalButtonText}>Upload Image</Text>
-            </TouchableOpacity>
-
-            {imageUri && (
-              <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-              </View>
-            )}
-
-            {imageUri && (
-              <TouchableOpacity onPress={() => {}} style={styles.modalButton}>
-                <MaterialCommunityIcons name="upload" size={20} color="white" />
-                <Text style={styles.modalButtonText}>Upload to Firebase</Text>
-              </TouchableOpacity>
-            )}
-
             <TouchableOpacity onPress={toggleModal} style={styles.cancelButton}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -384,6 +383,11 @@ const styles = StyleSheet.create({
     flexDirection: "row", // This keeps the buttons in a horizontal line
     alignItems: "center", // Align them vertically in the center
     justifyContent: "space-between", // Optional: to give space between buttons if needed
+  },
+  folderDate: {
+    color: "#aaa", // Gray color for the date text
+    fontSize: 12,
+    marginTop: 5, // Space between folder name and date
   },
 
   folderActionButton: {
