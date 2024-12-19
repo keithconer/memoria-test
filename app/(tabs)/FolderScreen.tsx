@@ -1,21 +1,48 @@
-// FolderScreen.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { useRoute } from "@react-navigation/native";
+import { ref, get } from "firebase/database"; // Firebase functions for data retrieval
+import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
 
-type FolderScreenProps = {
-  route: any; // Expecting the folderId and folderName in the route params
-};
+const FolderScreen = () => {
+  const route = useRoute();
+  const { folderId } = route.params; // Get the folderId from navigation params
 
-const FolderScreen: React.FC<FolderScreenProps> = ({ route }) => {
-  const { folderId, folderName } = route.params;
+  const [folderDetails, setFolderDetails] = useState<any>(null);
+
+  // Fetch folder details when component mounts or folderId changes
+  useEffect(() => {
+    const fetchFolderDetails = async () => {
+      try {
+        const folderRef = ref(database, `folders/${folderId}`);
+        const snapshot = await get(folderRef);
+
+        if (snapshot.exists()) {
+          setFolderDetails(snapshot.val()); // Set folder details from Firebase
+        } else {
+          console.log("Folder not found.");
+        }
+      } catch (error) {
+        console.error("Error fetching folder details:", error);
+      }
+    };
+
+    fetchFolderDetails(); // Fetch folder details after component mounts
+  }, [folderId]); // Re-fetch if folderId changes
 
   return (
     <View style={styles.container}>
-      <Text style={styles.folderName}>{folderName}</Text>
-      <Text style={styles.folderDetails}>
-        Folder ID: {folderId} - Images can be added here.
-      </Text>
-      {/* Future functionality like image uploading will go here */}
+      {folderDetails ? (
+        <>
+          <Text style={styles.title}>{folderDetails.name}</Text>
+          <Text style={styles.createdAt}>
+            Created At: {new Date(folderDetails.createdAt).toLocaleDateString()}
+          </Text>
+          {/* Add any additional folder data or content here */}
+        </>
+      ) : (
+        <Text style={styles.loading}>Loading...</Text>
+      )}
     </View>
   );
 };
@@ -27,16 +54,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#1c1c1c",
   },
-  folderName: {
-    fontSize: 24,
+  title: {
     color: "white",
+    fontSize: 24,
     fontWeight: "bold",
   },
-  folderDetails: {
-    fontSize: 16,
+  createdAt: {
     color: "white",
-    textAlign: "center",
-    marginTop: 20,
+    fontSize: 16,
+  },
+  loading: {
+    color: "white",
+    fontSize: 18,
   },
 });
 

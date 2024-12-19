@@ -1,14 +1,12 @@
-// app/app.tsx
-
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import Home from "./home"; // Import Home from the same folder (tabs)
-import FolderScreen from "./FolderScreen"; // Import FolderScreen from the same folder (tabs)
+import Home from "./home"; // Your main screen component
+import FolderScreen from "./FolderScreen"; // Your folder screen component
 
 const Stack = createStackNavigator();
 
-const App = () => {
+function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home">
@@ -17,6 +15,6 @@ const App = () => {
       </Stack.Navigator>
     </NavigationContainer>
   );
-};
+}
 
 export default App;

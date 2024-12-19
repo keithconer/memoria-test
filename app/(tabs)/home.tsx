@@ -11,11 +11,10 @@ import {
   Image,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
-
-// Import Firebase functions and database reference
 import { ref, get, push, set, remove, update } from "firebase/database"; // Firebase Realtime Database functions
 import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
 import * as ImagePicker from "expo-image-picker"; // Image picker for uploading images
+import { useNavigation } from "@react-navigation/native"; // Import the useNavigation hook
 
 // Type for Folder
 interface Folder {
@@ -24,6 +23,7 @@ interface Folder {
 }
 
 const Home = () => {
+  const navigation = useNavigation(); // Use navigation hook to navigate between screens
   const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
   const [folders, setFolders] = useState<Folder[]>([]); // State for folders
   const [folderName, setFolderName] = useState(""); // State for storing the folder name input
@@ -42,16 +42,6 @@ const Home = () => {
     };
 
     loadFolders(); // Fetch folders when the component mounts
-
-    // Fetch images when the component mounts
-    const loadImages = async () => {
-      const imagesData = await fetchImages();
-      // Filter images without a folderId
-      const unassignedImages = imagesData.filter((image) => !image.folderId);
-      setImages(unassignedImages);
-    };
-
-    loadImages(); // Fetch images on component mount
   }, []); // Empty dependency array means it runs only once after the component mounts
 
   // Function to fetch folders from Firebase Realtime Database
@@ -73,29 +63,6 @@ const Home = () => {
       }
     } catch (error) {
       console.error("Error fetching folders:", error);
-      return [];
-    }
-  };
-
-  // Function to fetch images from Firebase
-  const fetchImages = async (): Promise<any[]> => {
-    try {
-      const imagesRef = ref(database, "images"); // Reference to images node in Firebase
-      const snapshot = await get(imagesRef); // Get data from Firebase
-
-      if (snapshot.exists()) {
-        const imagesData = snapshot.val();
-        return Object.keys(imagesData).map((key) => ({
-          id: key,
-          uri: imagesData[key].uri, // Image URI from Firebase
-          folderId: imagesData[key].folderId, // If the image is not in a folder, folderId will be null or undefined
-        }));
-      } else {
-        console.log("No images found.");
-        return [];
-      }
-    } catch (error) {
-      console.error("Error fetching images:", error);
       return [];
     }
   };
@@ -131,25 +98,6 @@ const Home = () => {
   // Function to toggle the modal for creating a folder
   const toggleModal = () => {
     setModalVisible(!modalVisible); // Toggle the state of modal visibility
-  };
-
-  // Function to pick an image from the device
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status === "granted") {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Corrected line
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        setImageUri(result.uri); // Save the selected image URI
-      }
-    } else {
-      console.log("Permission to access media library is required.");
-    }
   };
 
   // Function to handle the renaming of a folder
@@ -189,6 +137,11 @@ const Home = () => {
     }
   };
 
+  // Folder click handler to navigate to FolderScreen
+  const handleFolderClick = (folderId: string) => {
+    navigation.navigate("FolderScreen", { folderId });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Memoria Logo and Tagline (Top-Left) */}
@@ -208,15 +161,13 @@ const Home = () => {
             // Format the createdAt date using JavaScript's Date object
             const folderDate = new Date(item.createdAt);
 
-            // Format the date to get the weekday and time (e.g., "Tuesday, 5:00 PM")
             const formattedDate = folderDate.toLocaleDateString("en-US", {
-              weekday: "long", // Full weekday name (e.g., "Tuesday")
+              weekday: "long", //
               year: "numeric",
               month: "long",
               day: "numeric",
             });
 
-            // Format the time (e.g., "5:00 PM")
             const formattedTime = folderDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
@@ -236,6 +187,16 @@ const Home = () => {
 
                 {/* Folder Actions (edit and delete buttons) */}
                 <View style={styles.folderActions}>
+                  <TouchableOpacity
+                    onPress={() => handleFolderClick(item.id)} // Trigger folder click handler
+                    style={styles.folderActionButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="folder-open"
+                      size={20}
+                      color="white"
+                    />
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
                       setCurrentFolderId(item.id);
