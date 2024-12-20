@@ -8,18 +8,17 @@ import {
   FlatList,
   SafeAreaView,
   TextInput,
-  Image,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
 import { ref, get, push, set, remove, update } from "firebase/database"; // Firebase Realtime Database functions
 import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
-import * as ImagePicker from "expo-image-picker"; // Image picker for uploading images
 import { useNavigation } from "@react-navigation/native"; // Import the useNavigation hook
 
 // Type for Folder
 interface Folder {
   id: string;
   name: string;
+  createdAt: number;
 }
 
 const Home = () => {
@@ -30,9 +29,7 @@ const Home = () => {
   const [renameModalVisible, setRenameModalVisible] = useState(false); // State for renaming modal visibility
   const [currentFolderId, setCurrentFolderId] = useState(""); // State to store the id of the folder being renamed
   const [newFolderName, setNewFolderName] = useState(""); // State to store the new folder name
-  const [imageUri, setImageUri] = useState<string | null>(null); // State for the selected image URI
   const [isFolderNameVisible, setIsFolderNameVisible] = useState(false); // State to toggle folder name input field
-  const [images, setImages] = useState<any[]>([]); // State for images without folders
 
   // Fetch folders when the component mounts
   useEffect(() => {
@@ -137,7 +134,6 @@ const Home = () => {
     }
   };
 
-  // Folder click handler to navigate to FolderScreen
   const handleFolderClick = (folderId: string) => {
     navigation.navigate("FolderScreen", { folderId });
   };
@@ -378,6 +374,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  folderTextContainer: {
+    flex: 1,
+  },
   folderText: {
     color: "white",
     fontSize: 16,
@@ -391,18 +390,17 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   folderActions: {
-    flexDirection: "row", // This keeps the buttons in a horizontal line
-    alignItems: "center", // Align them vertically in the center
-    justifyContent: "space-between", // Optional: to give space between buttons if needed
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   folderDate: {
-    color: "#aaa", // Gray color for the date text
+    color: "#aaa",
     fontSize: 12,
-    marginTop: 5, // Space between folder name and date
+    marginTop: 5,
   },
-
   folderActionButton: {
-    marginLeft: 10, // Adds space between the buttons
+    marginLeft: 10,
   },
   floatingButton: {
     position: "absolute",
@@ -461,50 +459,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: "white",
     fontSize: 16,
-  },
-  imagePreviewContainer: {
-    marginTop: 10,
-    marginBottom: 10,
-    width: "100%",
-    alignItems: "center",
-  },
-  imagePreview: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-  },
-  galleryContainer: {
-    marginTop: 40,
-    width: "100%",
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: "#444444",
-    borderRadius: 8,
-    backgroundColor: "#2c2c2c",
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  galleryTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "white",
-    marginBottom: 20,
-  },
-  galleryContent: {
-    flexDirection: "column", // Ensures items are displayed vertically
-    alignItems: "center",
-  },
-  imageContainer: {
-    marginBottom: 10, // Space between images
-  },
-  image: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    marginRight: 10, // Space between images in the gallery
   },
 });
 
