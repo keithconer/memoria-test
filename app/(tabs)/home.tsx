@@ -225,14 +225,16 @@ const Home = () => {
     <SafeAreaView style={styles.container}>
       {/* Memoria Logo and Tagline (Top-Left) */}
       <View style={styles.logoContainer}>
-        <Text style={styles.logo}>Memoria</Text>
+        <Text style={styles.logo}>memoria.</Text>
         <Text style={styles.tagline}>
           Let's keep your memories organized and treasured.
         </Text>
       </View>
       {/* Displaying Folders Section with Border and Shadow */}
       <View style={styles.foldersContainer}>
-        <Text style={styles.foldersTitle}>Here are your memories so far.</Text>
+        <Text style={styles.foldersTitle}>
+          Here are your lovely memories so far
+        </Text>
         <FlatList
           data={folders}
           keyExtractor={(item) => item.id}
@@ -477,7 +479,8 @@ const styles = StyleSheet.create({
     color: "white",
   },
   tagline: {
-    fontSize: 13,
+    fontSize: 15,
+    fontStyle: "italic",
     color: "white",
     marginTop: 10,
     marginBottom: 30,
@@ -495,6 +498,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    maxHeight: "60%", // You can adjust this value to fit your layout needs
+    overflow: "scroll", // Makes the content scrollable when it exceeds the maxHeight
   },
   foldersTitle: {
     fontSize: 18,
