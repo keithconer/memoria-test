@@ -232,7 +232,7 @@ const Home = () => {
       </View>
       {/* Displaying Folders Section with Border and Shadow */}
       <View style={styles.foldersContainer}>
-        <Text style={styles.foldersTitle}>Here are your memories so far:</Text>
+        <Text style={styles.foldersTitle}>Here are your memories so far.</Text>
         <FlatList
           data={folders}
           keyExtractor={(item) => item.id}
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   foldersTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "medium",
     color: "white",
     marginBottom: 20,
   },

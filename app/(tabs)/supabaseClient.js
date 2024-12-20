@@ -6,4 +6,23 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+
+export const uploadImage = async (file, userId) => {
+  const filePath = `user_images/${userId}/${file.name}`;
+  const { data, error } = await supabase.storage
+    .from('memoriabucket')
+    .upload(filePath, file);
+
+  if (error) {
+    console.error('Error uploading file:', error.message);
+    return null;
+  }
+
+  const publicUrl = supabase.storage
+    .from('memoriabucket')
+    .getPublicUrl(filePath).publicURL;
+
+  return publicUrl;
+};
+
 export default supabase;
