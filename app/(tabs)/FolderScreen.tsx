@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import supabase from "./supabaseClient";
+import { useNavigation } from "@react-navigation/native";
 
-const FolderScreen = ({ route, navigation }) => {
+const FolderScreen = ({ route }) => {
   const { folderId } = route.params;
+  const navigation = useNavigation();
   const [items, setItems] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);

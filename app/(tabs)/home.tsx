@@ -8,11 +8,13 @@ import {
   FlatList,
   SafeAreaView,
   TextInput,
+  Image,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
 import { ref, get, push, set, remove, update } from "firebase/database"; // Firebase Realtime Database functions
 import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
-import { useNavigation } from "@react-navigation/native"; // Import the useNavigation hook
+import * as ImagePicker from "expo-image-picker"; // Image picker for uploading images
+import supabase from "./supabaseClient"; // Path to your supabaseClient.js file
 
 // Type for Folder
 interface Folder {
@@ -22,7 +24,6 @@ interface Folder {
 }
 
 const Home = () => {
-  const navigation = useNavigation(); // Use navigation hook to navigate between screens
   const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
   const [folders, setFolders] = useState<Folder[]>([]); // State for folders
   const [folderName, setFolderName] = useState(""); // State for storing the folder name input
@@ -30,6 +31,12 @@ const Home = () => {
   const [currentFolderId, setCurrentFolderId] = useState(""); // State to store the id of the folder being renamed
   const [newFolderName, setNewFolderName] = useState(""); // State to store the new folder name
   const [isFolderNameVisible, setIsFolderNameVisible] = useState(false); // State to toggle folder name input field
+  const [imageUploadModalVisible, setImageUploadModalVisible] = useState(false); // State for image upload modal
+  const [selectedFolderId, setSelectedFolderId] = useState(""); // State to store the selected folder ID for image upload
+  const [selectedFolderName, setSelectedFolderName] = useState(""); // State to store the selected folder name
+  const [selectedFolderDate, setSelectedFolderDate] = useState(""); // State to store the selected folder date
+  const [items, setItems] = useState<any[]>([]); // State for items in the folder
+  const [loading, setLoading] = useState(false); // State for loading
 
   // Fetch folders when the component mounts
   useEffect(() => {
@@ -134,8 +141,84 @@ const Home = () => {
     }
   };
 
-  const handleFolderClick = (folderId: string) => {
-    navigation.navigate("FolderScreen", { folderId });
+  const handleFolderClick = async (folderId: string) => {
+    setSelectedFolderId(folderId);
+    const folder = folders.find((f) => f.id === folderId);
+    if (folder) {
+      setSelectedFolderName(folder.name);
+      const folderDate = new Date(folder.createdAt);
+      const formattedDate = folderDate.toLocaleDateString("en-US", {
+        weekday: "long", //
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const formattedTime = folderDate.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true, // Ensures 12-hour format (AM/PM)
+      });
+      setSelectedFolderDate(`${formattedDate}, ${formattedTime}`);
+    }
+    setImageUploadModalVisible(true);
+    setLoading(true);
+    const { data, error } = await supabase.storage
+      .from("memoriabucket")
+      .list(folderId);
+
+    if (error) {
+      console.error("Error fetching items:", error);
+    } else {
+      const folders = data.filter(
+        (item) => item.metadata && item.metadata.isDirectory
+      );
+      const files = data
+        .filter((item) => !item.metadata?.isDirectory)
+        .map(
+          (file) =>
+            supabase.storage
+              .from("memoriabucket")
+              .getPublicUrl(`${folderId}/${file.name}`).publicURL
+        );
+
+      setItems([...folders, ...files]);
+    }
+    setLoading(false);
+  };
+
+  const uploadImage = async (uri: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileName = uri.split("/").pop();
+      const fileExtension = fileName?.split(".").pop();
+
+      const { error } = await supabase.storage
+        .from("memoriabucket")
+        .upload(`${selectedFolderId}/${Date.now()}.${fileExtension}`, blob);
+
+      if (error) throw error;
+
+      handleFolderClick(selectedFolderId); // Refresh items after upload
+      setImageUploadModalVisible(false);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets) {
+      await uploadImage(result.assets[0].uri);
+    }
   };
 
   return (
@@ -312,6 +395,60 @@ const Home = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Image Upload Modal */}
+      <Modal
+        transparent={true}
+        visible={imageUploadModalVisible}
+        animationType="slide"
+        onRequestClose={() => setImageUploadModalVisible(false)}
+      >
+        <View style={styles.fullScreenModalOverlay}>
+          <View style={styles.fullScreenModalContent}>
+            <Text style={styles.modalTitle}>{selectedFolderName}</Text>
+            <Text style={styles.modalSubtitle}>{selectedFolderDate}</Text>
+
+            {loading ? (
+              <Text style={styles.loading}>Loading...</Text>
+            ) : (
+              <FlatList
+                data={items}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({ item }) =>
+                  typeof item === "string" ? (
+                    <View style={styles.imageContainer}>
+                      <Image source={{ uri: item }} style={styles.image} />
+                    </View>
+                  ) : (
+                    <View style={styles.folderContainer}>
+                      <Text style={styles.folderText}>{item.name}</Text>
+                    </View>
+                  )
+                }
+                numColumns={3}
+                columnWrapperStyle={{ justifyContent: "space-between" }}
+              />
+            )}
+
+            <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+              <MaterialCommunityIcons
+                name="image-plus"
+                size={20}
+                color="white"
+                style={styles.uploadIcon}
+              />
+              <Text style={styles.uploadButtonText}>Upload Image</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setImageUploadModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -459,6 +596,59 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: "white",
     fontSize: 16,
+  },
+  fullScreenModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  fullScreenModalContent: {
+    backgroundColor: "#333333",
+    padding: 20,
+    borderRadius: 8,
+    width: "90%",
+    height: "90%",
+    alignItems: "center",
+  },
+  modalHeader: {
+    alignSelf: "flex-start",
+    marginBottom: 20,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: "#aaa",
+    marginBottom: 10,
+  },
+  loading: {
+    color: "#aaa",
+    fontSize: 16,
+  },
+  folderContainer: {
+    margin: 5,
+    padding: 10,
+    backgroundColor: "#444444",
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  uploadButton: {
+    flexDirection: "row",
+    alignItems: "center", // Vertically centers children along the cross axis
+    justifyContent: "center", // Horizontally centers children along the main axis
+    backgroundColor: "#444444",
+    padding: 20,
+    width: "100%",
+    marginBottom: 10,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  uploadButtonText: {
+    color: "white",
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  uploadIcon: {
+    marginRight: 10,
   },
 });
 
