@@ -37,6 +37,8 @@ const Home = () => {
   const [selectedFolderDate, setSelectedFolderDate] = useState(""); // State to store the selected folder date
   const [items, setItems] = useState<any[]>([]); // State for items in the folder
   const [loading, setLoading] = useState(false); // State for loading
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false); // State for delete confirmation modal visibility
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null); // State to store the folder to be deleted
 
   // Fetch folders when the component mounts
   useEffect(() => {
@@ -127,18 +129,40 @@ const Home = () => {
   };
 
   // Function to handle folder deletion
-  const handleDeleteFolder = async (id: string) => {
+  const handleDeleteFolder = async () => {
+    if (!folderToDelete) return;
+
     try {
-      const folderRef = ref(database, `folders/${id}`); // Reference to the folder to be deleted
+      const folderRef = ref(database, `folders/${folderToDelete.id}`); // Reference to the folder to be deleted
       await remove(folderRef); // Delete the folder from Firebase
-      console.log("Folder deleted successfully!");
+
+      // Delete all images inside the folder from Supabase storage
+      const { error } = await supabase.storage
+        .from("memoriabucket")
+        .remove([`${folderToDelete.id}/`]);
+
+      if (error) {
+        console.error("Error deleting images:", error);
+      } else {
+        console.log("Folder and images deleted successfully!");
+      }
 
       // Fetch updated folders after deletion
       const folderData = await fetchFolders();
       setFolders(folderData); // Update folders state with new data
+
+      // Close delete confirmation modal and clear folder to delete
+      setDeleteModalVisible(false);
+      setFolderToDelete(null);
     } catch (error) {
       console.error("Error deleting folder:", error);
     }
+  };
+
+  // Function to open the delete confirmation modal
+  const openDeleteModal = (folder: Folder) => {
+    setFolderToDelete(folder);
+    setDeleteModalVisible(true);
   };
 
   const handleFolderClick = async (folderId: string) => {
@@ -293,7 +317,7 @@ const Home = () => {
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => handleDeleteFolder(item.id)}
+                    onPress={() => openDeleteModal(item)}
                     style={styles.folderActionButton}
                   >
                     <MaterialCommunityIcons
@@ -447,6 +471,39 @@ const Home = () => {
               onPress={() => setImageUploadModalVisible(false)}
             >
               <Text style={styles.cancelButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        transparent={true}
+        visible={deleteModalVisible}
+        animationType="fade"
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete Folder</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this folder and all of the images
+              inside it?
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleDeleteFolder}
+              style={styles.modalButton}
+            >
+              <MaterialCommunityIcons name="delete" size={20} color="white" />
+              <Text style={styles.modalButtonText}>Delete Folder</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setDeleteModalVisible(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -646,6 +703,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 8,
     marginTop: 20,
+  },
+  modalText: {
+    color: "white",
+    marginBottom: 10,
+    textAlign: "center",
   },
   uploadButtonText: {
     color: "white",
