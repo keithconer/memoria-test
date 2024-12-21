@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
 import { ref, get, push, set, remove, update } from "firebase/database"; // Firebase Realtime Database functions
 import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
 import * as ImagePicker from "expo-image-picker"; // Image picker for uploading images
-import supabase from "./supabaseClient"; // Path to your supabaseClient.js file
+import { uploadImageToCloudinary } from "./cloudinaryClient"; // Path to your cloudinaryClient.js file
 
 // Type for Folder
 interface Folder {
@@ -136,16 +136,7 @@ const Home = () => {
       const folderRef = ref(database, `folders/${folderToDelete.id}`); // Reference to the folder to be deleted
       await remove(folderRef); // Delete the folder from Firebase
 
-      // Delete all images inside the folder from Supabase storage
-      const { error } = await supabase.storage
-        .from("memoriabucket")
-        .remove([`${folderToDelete.id}/`]);
-
-      if (error) {
-        console.error("Error deleting images:", error);
-      } else {
-        console.log("Folder and images deleted successfully!");
-      }
+      console.log("Folder deleted successfully!");
 
       // Fetch updated folders after deletion
       const folderData = await fetchFolders();
@@ -185,44 +176,24 @@ const Home = () => {
       setSelectedFolderDate(`${formattedDate}, ${formattedTime}`);
     }
     setImageUploadModalVisible(true);
-    setLoading(true);
-    const { data, error } = await supabase.storage
-      .from("memoriabucket")
-      .list(folderId);
-
-    if (error) {
-      console.error("Error fetching items:", error);
-    } else {
-      const folders = data.filter(
-        (item) => item.metadata && item.metadata.isDirectory
-      );
-      const files = data
-        .filter((item) => !item.metadata?.isDirectory)
-        .map(
-          (file) =>
-            supabase.storage
-              .from("memoriabucket")
-              .getPublicUrl(`${folderId}/${file.name}`).publicURL
-        );
-
-      setItems([...folders, ...files]);
-    }
-    setLoading(false);
   };
 
   const uploadImage = async (uri: string) => {
     try {
       setLoading(true);
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const fileName = uri.split("/").pop();
-      const fileExtension = fileName?.split(".").pop();
+      const imageUrl = await uploadImageToCloudinary(uri);
 
-      const { error } = await supabase.storage
-        .from("memoriabucket")
-        .upload(`${selectedFolderId}/${Date.now()}.${fileExtension}`, blob);
+      if (!imageUrl) {
+        throw new Error("Failed to get image URL from Cloudinary");
+      }
 
-      if (error) throw error;
+      console.log("Image uploaded successfully:", imageUrl);
+
+      // Here you can save the image URL to Firebase under the selected folder
+      const imageRef = push(
+        ref(database, `folders/${selectedFolderId}/images`)
+      );
+      await set(imageRef, { url: imageUrl });
 
       handleFolderClick(selectedFolderId); // Refresh items after upload
       setImageUploadModalVisible(false);
@@ -240,7 +211,7 @@ const Home = () => {
       quality: 1,
     });
 
-    if (!result.canceled && result.assets) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       await uploadImage(result.assets[0].uri);
     }
   };
