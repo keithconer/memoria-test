@@ -161,11 +161,12 @@ const Home = () => {
   const handleFolderClick = async (folderId: string) => {
     setSelectedFolderId(folderId);
     const folder = folders.find((f) => f.id === folderId);
+
     if (folder) {
       setSelectedFolderName(folder.name);
       const folderDate = new Date(folder.createdAt);
       const formattedDate = folderDate.toLocaleDateString("en-US", {
-        weekday: "long", //
+        weekday: "long",
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -173,10 +174,26 @@ const Home = () => {
       const formattedTime = folderDate.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true, // Ensures 12-hour format (AM/PM)
+        hour12: true,
       });
       setSelectedFolderDate(`${formattedDate}, ${formattedTime}`);
     }
+
+    try {
+      const imagesRef = ref(database, `folders/${folderId}/images`);
+      const snapshot = await get(imagesRef);
+
+      if (snapshot.exists()) {
+        const images = Object.values(snapshot.val());
+        setItems(images); // Update `items` state with fetched images
+      } else {
+        setItems([]); // Clear items if no images exist
+      }
+    } catch (error) {
+      console.error("Error fetching images:", error);
+      setItems([]);
+    }
+
     setImageUploadModalVisible(true);
   };
 
@@ -414,18 +431,12 @@ const Home = () => {
               <FlatList
                 data={items}
                 keyExtractor={(item, index) => index.toString()}
-                renderItem={({ item }) =>
-                  typeof item === "string" ? (
-                    <View style={styles.imageContainer}>
-                      <Image source={{ uri: item }} style={styles.image} />
-                    </View>
-                  ) : (
-                    <View style={styles.folderContainer}>
-                      <Text style={styles.folderText}>{item.name}</Text>
-                    </View>
-                  )
-                }
-                numColumns={3}
+                renderItem={({ item }) => (
+                  <View style={styles.imageContainer}>
+                    <Image source={{ uri: item.url }} style={styles.image} />
+                  </View>
+                )}
+                numColumns={3} // Display 3 images per row
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
             )}
@@ -722,6 +733,19 @@ const styles = StyleSheet.create({
     color: "green",
     marginTop: 10,
     fontWeight: "bold",
+  },
+  imageContainer: {
+    flex: 1,
+    margin: 5,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  image: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
   },
 });
 
