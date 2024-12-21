@@ -39,6 +39,8 @@ const Home = () => {
   const [loading, setLoading] = useState(false); // State for loading
   const [deleteModalVisible, setDeleteModalVisible] = useState(false); // State for delete confirmation modal visibility
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null); // State to store the folder to be deleted
+  const [uploadSuccessModalVisible, setUploadSuccessModalVisible] =
+    useState(false);
 
   // Fetch folders when the component mounts
   useEffect(() => {
@@ -182,21 +184,22 @@ const Home = () => {
     try {
       setLoading(true);
       const imageUrl = await uploadImageToCloudinary(uri);
-
       if (!imageUrl) {
         throw new Error("Failed to get image URL from Cloudinary");
       }
 
-      console.log("Image uploaded successfully:", imageUrl);
-
-      // Here you can save the image URL to Firebase under the selected folder
       const imageRef = push(
         ref(database, `folders/${selectedFolderId}/images`)
       );
       await set(imageRef, { url: imageUrl });
 
-      handleFolderClick(selectedFolderId); // Refresh items after upload
+      const folderData = await fetchFolders();
+      setFolders(folderData);
       setImageUploadModalVisible(false);
+
+      // Show success modal
+      setUploadSuccessModalVisible(true);
+      setTimeout(() => setUploadSuccessModalVisible(false), 2000); // Hide modal after 2 seconds
     } catch (error) {
       console.error("Error uploading image:", error);
     } finally {
@@ -447,6 +450,24 @@ const Home = () => {
         </View>
       </Modal>
 
+      {/* Success Modal */}
+      <Modal
+        transparent={true}
+        visible={uploadSuccessModalVisible}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.successModalContent}>
+            <MaterialCommunityIcons
+              name="check-circle"
+              size={50}
+              color="green"
+            />
+            <Text style={styles.successText}>Image uploaded successfully!</Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* Delete Confirmation Modal */}
       <Modal
         transparent={true}
@@ -687,6 +708,20 @@ const styles = StyleSheet.create({
   },
   uploadIcon: {
     marginRight: 10,
+  },
+  successModalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    elevation: 5,
+  },
+  successText: {
+    fontSize: 18,
+    color: "green",
+    marginTop: 10,
+    fontWeight: "bold",
   },
 });
 
