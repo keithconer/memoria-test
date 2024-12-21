@@ -36,6 +36,9 @@ const Home = () => {
   const [selectedFolderName, setSelectedFolderName] = useState(""); // State to store the selected folder name
   const [selectedFolderDate, setSelectedFolderDate] = useState(""); // State to store the selected folder date
   const [items, setItems] = useState<any[]>([]); // State for items in the folder
+  const [imageViewerVisible, setImageViewerVisible] = useState(false); // State for image viewer modal
+  const [selectedImageUrl, setSelectedImageUrl] = useState(""); // State for selected image URL
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false); // State for loading
   const [deleteModalVisible, setDeleteModalVisible] = useState(false); // State for delete confirmation modal visibility
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null); // State to store the folder to be deleted
@@ -73,6 +76,11 @@ const Home = () => {
       console.error("Error fetching folders:", error);
       return [];
     }
+  };
+
+  const handleImageClick = (imageUrl: string) => {
+    setSelectedImageUrl(imageUrl); // Set the selected image URL
+    setImageViewerVisible(true); // Show the image viewer modal
   };
 
   // Function to create a new folder in Firebase
@@ -432,9 +440,12 @@ const Home = () => {
                 data={items}
                 keyExtractor={(item, index) => index.toString()}
                 renderItem={({ item }) => (
-                  <View style={styles.imageContainer}>
+                  <TouchableOpacity
+                    style={styles.imageContainer}
+                    onPress={() => setSelectedImage(item.url)} // Set selected image
+                  >
                     <Image source={{ uri: item.url }} style={styles.image} />
-                  </View>
+                  </TouchableOpacity>
                 )}
                 numColumns={3} // Display 3 images per row
                 columnWrapperStyle={{ justifyContent: "space-between" }}
@@ -459,6 +470,29 @@ const Home = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Image Viewer Modal */}
+        <Modal
+          transparent={true}
+          visible={selectedImage !== null}
+          animationType="fade"
+          onRequestClose={() => setSelectedImage(null)} // Close image viewer
+        >
+          <View style={styles.imageViewerOverlay}>
+            <TouchableOpacity
+              style={styles.closeImageViewer}
+              onPress={() => setSelectedImage(null)} // Close image viewer
+            >
+              <MaterialCommunityIcons name="close" size={30} color="white" />
+            </TouchableOpacity>
+            {selectedImage && (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.fullScreenImage}
+              />
+            )}
+          </View>
+        </Modal>
       </Modal>
 
       {/* Success Modal */}
@@ -526,6 +560,23 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  fullScreenModalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.8)" },
+  fullScreenModalContent: { flex: 1, padding: 10 },
+  imageContainer: { margin: 5 },
+  image: { width: 100, height: 100, borderRadius: 5 },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageViewerCloseButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 1,
+  },
+  fullImage: { width: "90%", height: "90%", resizeMode: "contain" },
   logoContainer: {
     position: "absolute",
     top: 40,
@@ -721,7 +772,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   successModalContent: {
-    backgroundColor: "white",
+    backgroundColor: "#FFFFFF",
     padding: 20,
     alignItems: "center",
     justifyContent: "center",
@@ -734,18 +785,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontWeight: "bold",
   },
-  imageContainer: {
+  imageViewerOverlay: {
     flex: 1,
-    margin: 5,
+    backgroundColor: "black",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
-    overflow: "hidden",
   },
-  image: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
+
+  closeImageViewer: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 10,
+  },
+
+  fullScreenImage: {
+    width: "90%",
+    height: "90%",
+    resizeMode: "contain",
   },
 });
 
