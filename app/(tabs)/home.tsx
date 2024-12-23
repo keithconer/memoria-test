@@ -51,6 +51,8 @@ const Home = () => {
   const [comments, setComments] = useState<string[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [commentSuccessModalVisible, setCommentSuccessModalVisible] =
+    useState(false);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -277,6 +279,8 @@ const Home = () => {
 
       setNewComment("");
       setCommentModalVisible(false);
+      setCommentSuccessModalVisible(true);
+      setTimeout(() => setCommentSuccessModalVisible(false), 2000);
 
       await fetchComments(selectedImageId);
     } catch (error) {
@@ -567,6 +571,23 @@ const Home = () => {
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent={true}
+        visible={commentSuccessModalVisible}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.successModalContent}>
+            <MaterialCommunityIcons
+              name="check-circle"
+              size={50}
+              color="green"
+            />
+            <Text style={styles.successText}>Comment added successfully!</Text>
           </View>
         </View>
       </Modal>
