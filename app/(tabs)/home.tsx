@@ -10,63 +10,67 @@ import {
   TextInput,
   Image,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons"; // For icons
-import { ref, get, push, set, remove, update } from "firebase/database"; // Firebase Realtime Database functions
-import { database } from "./firebaseConfig"; // Import the database from firebaseConfig
-import * as ImagePicker from "expo-image-picker"; // Image picker for uploading images
-import { uploadImageToCloudinary } from "./cloudinaryClient"; // Path to your cloudinaryClient.js file
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ref, get, push, set, remove, update } from "firebase/database";
+import { database } from "./firebaseConfig";
+import * as ImagePicker from "expo-image-picker";
+import { uploadImageToCloudinary } from "./cloudinaryClient";
 
-// Type for Folder
 interface Folder {
   id: string;
   name: string;
   createdAt: number;
 }
 
+interface ImageItem {
+  id: string;
+  url: string;
+}
+
 const Home = () => {
-  const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
-  const [folders, setFolders] = useState<Folder[]>([]); // State for folders
-  const [folderName, setFolderName] = useState(""); // State for storing the folder name input
-  const [renameModalVisible, setRenameModalVisible] = useState(false); // State for renaming modal visibility
-  const [currentFolderId, setCurrentFolderId] = useState(""); // State to store the id of the folder being renamed
-  const [newFolderName, setNewFolderName] = useState(""); // State to store the new folder name
-  const [isFolderNameVisible, setIsFolderNameVisible] = useState(false); // State to toggle folder name input field
-  const [imageUploadModalVisible, setImageUploadModalVisible] = useState(false); // State for image upload modal
-  const [selectedFolderId, setSelectedFolderId] = useState(""); // State to store the selected folder ID for image upload
-  const [selectedFolderName, setSelectedFolderName] = useState(""); // State to store the selected folder name
-  const [selectedFolderDate, setSelectedFolderDate] = useState(""); // State to store the selected folder date
-  const [items, setItems] = useState<any[]>([]); // State for items in the folder
-  const [imageViewerVisible, setImageViewerVisible] = useState(false); // State for image viewer modal
-  const [selectedImageUrl, setSelectedImageUrl] = useState(""); // State for selected image URL
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false); // State for loading
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false); // State for delete confirmation modal visibility
-  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null); // State to store the folder to be deleted
+  const [modalVisible, setModalVisible] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folderName, setFolderName] = useState("");
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState("");
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isFolderNameVisible, setIsFolderNameVisible] = useState(false);
+  const [imageUploadModalVisible, setImageUploadModalVisible] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState("");
+  const [selectedFolderName, setSelectedFolderName] = useState("");
+  const [selectedFolderDate, setSelectedFolderDate] = useState("");
+  const [items, setItems] = useState<ImageItem[]>([]);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [selectedImageUrl, setSelectedImageUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [uploadSuccessModalVisible, setUploadSuccessModalVisible] =
     useState(false);
+  const [comments, setComments] = useState<string[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
 
-  // Fetch folders when the component mounts
   useEffect(() => {
     const loadFolders = async () => {
-      const folderData = await fetchFolders(); // Fetch folders from Firebase
-      setFolders(folderData); // Update state with fetched folders
+      const folderData = await fetchFolders();
+      setFolders(folderData);
     };
+    loadFolders();
+  }, []);
 
-    loadFolders(); // Fetch folders when the component mounts
-  }, []); // Empty dependency array means it runs only once after the component mounts
-
-  // Function to fetch folders from Firebase Realtime Database
   const fetchFolders = async (): Promise<Folder[]> => {
     try {
-      const folderRef = ref(database, "folders"); // Reference to the "folders" node in Firebase
-      const snapshot = await get(folderRef); // Get data from the database
+      const folderRef = ref(database, "folders");
+      const snapshot = await get(folderRef);
 
       if (snapshot.exists()) {
-        const folders = snapshot.val(); // Get all folders as an object
+        const folders = snapshot.val();
         return Object.keys(folders).map((key) => ({
           id: key,
-          name: folders[key].name, // Folder name from database
-          createdAt: folders[key].createdAt, // Folder creation date
+          name: folders[key].name,
+          createdAt: folders[key].createdAt,
         }));
       } else {
         console.log("No folders found.");
@@ -78,12 +82,13 @@ const Home = () => {
     }
   };
 
-  const handleImageClick = (imageUrl: string) => {
-    setSelectedImageUrl(imageUrl); // Set the selected image URL
-    setImageViewerVisible(true); // Show the image viewer modal
+  const handleImageClick = async (imageId: string, imageUrl: string) => {
+    setSelectedImageId(imageId);
+    setSelectedImageUrl(imageUrl);
+    setImageViewerVisible(true);
+    await fetchComments(imageId);
   };
 
-  // Function to create a new folder in Firebase
   const handleCreateFolder = async () => {
     if (folderName.trim() === "") {
       console.log("Folder name is required.");
@@ -94,29 +99,26 @@ const Home = () => {
       const folderRef = push(ref(database, "folders"));
       const newFolder = {
         name: folderName,
-        createdAt: Date.now(), // This line records the creation time
+        createdAt: Date.now(),
       };
-      await set(folderRef, newFolder); // Save folder data to Firebase
+      await set(folderRef, newFolder);
 
       console.log("Folder created successfully!");
 
-      // Fetch updated folders after creation
       const folderData = await fetchFolders();
-      setFolders(folderData); // Update folders state with new data
-      setFolderName(""); // Clear input field after folder creation
-      setIsFolderNameVisible(false); // Hide input field
-      toggleModal(); // Close modal
+      setFolders(folderData);
+      setFolderName("");
+      setIsFolderNameVisible(false);
+      toggleModal();
     } catch (error) {
       console.error("Error creating folder:", error);
     }
   };
 
-  // Function to toggle the modal for creating a folder
   const toggleModal = () => {
-    setModalVisible(!modalVisible); // Toggle the state of modal visibility
+    setModalVisible(!modalVisible);
   };
 
-  // Function to handle the renaming of a folder
   const handleRenameFolder = async () => {
     if (newFolderName.trim() === "") {
       console.log("New folder name is required.");
@@ -124,35 +126,30 @@ const Home = () => {
     }
 
     try {
-      const folderRef = ref(database, `folders/${currentFolderId}`); // Reference to the folder to be renamed
-      await update(folderRef, { name: newFolderName }); // Update the folder name in Firebase
+      const folderRef = ref(database, `folders/${currentFolderId}`);
+      await update(folderRef, { name: newFolderName });
       console.log("Folder renamed successfully!");
 
-      // Fetch updated folders after renaming
       const folderData = await fetchFolders();
-      setFolders(folderData); // Update folders state with new data
-      setRenameModalVisible(false); // Close the rename modal
-      setNewFolderName(""); // Clear new folder name input
+      setFolders(folderData);
+      setRenameModalVisible(false);
+      setNewFolderName("");
     } catch (error) {
       console.error("Error renaming folder:", error);
     }
   };
 
-  // Function to handle folder deletion
   const handleDeleteFolder = async () => {
     if (!folderToDelete) return;
 
     try {
-      const folderRef = ref(database, `folders/${folderToDelete.id}`); // Reference to the folder to be deleted
-      await remove(folderRef); // Delete the folder from Firebase
+      const folderRef = ref(database, `folders/${folderToDelete.id}`);
+      await remove(folderRef);
 
       console.log("Folder deleted successfully!");
 
-      // Fetch updated folders after deletion
       const folderData = await fetchFolders();
-      setFolders(folderData); // Update folders state with new data
-
-      // Close delete confirmation modal and clear folder to delete
+      setFolders(folderData);
       setDeleteModalVisible(false);
       setFolderToDelete(null);
     } catch (error) {
@@ -160,7 +157,6 @@ const Home = () => {
     }
   };
 
-  // Function to open the delete confirmation modal
   const openDeleteModal = (folder: Folder) => {
     setFolderToDelete(folder);
     setDeleteModalVisible(true);
@@ -192,10 +188,14 @@ const Home = () => {
       const snapshot = await get(imagesRef);
 
       if (snapshot.exists()) {
-        const images = Object.values(snapshot.val());
-        setItems(images); // Update `items` state with fetched images
+        const images = snapshot.val();
+        const imageItems = Object.keys(images).map((key) => ({
+          id: key,
+          url: images[key].url,
+        }));
+        setItems(imageItems);
       } else {
-        setItems([]); // Clear items if no images exist
+        setItems([]);
       }
     } catch (error) {
       console.error("Error fetching images:", error);
@@ -222,9 +222,8 @@ const Home = () => {
       setFolders(folderData);
       setImageUploadModalVisible(false);
 
-      // Show success modal
       setUploadSuccessModalVisible(true);
-      setTimeout(() => setUploadSuccessModalVisible(false), 2000); // Hide modal after 2 seconds
+      setTimeout(() => setUploadSuccessModalVisible(false), 2000);
     } catch (error) {
       console.error("Error uploading image:", error);
     } finally {
@@ -244,16 +243,55 @@ const Home = () => {
     }
   };
 
+  const fetchComments = async (imageId: string) => {
+    try {
+      const commentRef = ref(
+        database,
+        `folders/${selectedFolderId}/images/${imageId}/comments`
+      );
+      const snapshot = await get(commentRef);
+
+      if (snapshot.exists()) {
+        const commentsData = snapshot.val();
+        setComments(Object.values(commentsData));
+      } else {
+        setComments([]);
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      setComments([]);
+    }
+  };
+
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+
+    try {
+      const commentRef = push(
+        ref(
+          database,
+          `folders/${selectedFolderId}/images/${selectedImageId}/comments`
+        )
+      );
+      await set(commentRef, newComment);
+
+      setNewComment("");
+      setCommentModalVisible(false);
+
+      await fetchComments(selectedImageId);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Memoria Logo and Tagline (Top-Left) */}
       <View style={styles.logoContainer}>
         <Text style={styles.logo}>memoria.</Text>
         <Text style={styles.tagline}>
           Let's keep your memories organized and treasured.
         </Text>
       </View>
-      {/* Displaying Folders Section with Border and Shadow */}
       <View style={styles.foldersContainer}>
         <Text style={styles.foldersTitle}>
           Here are your lovely memories so far
@@ -262,11 +300,10 @@ const Home = () => {
           data={folders}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            // Format the createdAt date using JavaScript's Date object
             const folderDate = new Date(item.createdAt);
 
             const formattedDate = folderDate.toLocaleDateString("en-US", {
-              weekday: "long", //
+              weekday: "long",
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -275,24 +312,21 @@ const Home = () => {
             const formattedTime = folderDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
-              hour12: true, // Ensures 12-hour format (AM/PM)
+              hour12: true,
             });
 
             return (
               <View style={styles.folderItem}>
-                {/* Folder Name and Date Section */}
                 <View style={styles.folderTextContainer}>
                   <Text style={styles.folderText}>{item.name}</Text>
                   <Text
                     style={styles.folderDate}
-                  >{`${formattedDate}, ${formattedTime}`}</Text>{" "}
-                  {/* Display date and time */}
+                  >{`${formattedDate}, ${formattedTime}`}</Text>
                 </View>
 
-                {/* Folder Actions (edit and delete buttons) */}
                 <View style={styles.folderActions}>
                   <TouchableOpacity
-                    onPress={() => handleFolderClick(item.id)} // Trigger folder click handler
+                    onPress={() => handleFolderClick(item.id)}
                     style={styles.folderActionButton}
                   >
                     <MaterialCommunityIcons
@@ -332,11 +366,10 @@ const Home = () => {
         />
       </View>
 
-      {/* Create Folder Button */}
       <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
         <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
       </TouchableOpacity>
-      {/* Rename Folder Modal */}
+
       <Modal
         transparent={true}
         visible={renameModalVisible}
@@ -371,7 +404,7 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-      {/* Create Folder Modal */}
+
       <Modal
         transparent={true}
         visible={modalVisible}
@@ -383,7 +416,6 @@ const Home = () => {
             <Text style={styles.modalTitle}>Create a Folder</Text>
 
             {!isFolderNameVisible ? (
-              // Create Folder Button (initial view)
               <TouchableOpacity
                 onPress={() => setIsFolderNameVisible(true)}
                 style={styles.modalButton}
@@ -392,7 +424,6 @@ const Home = () => {
                 <Text style={styles.modalButtonText}>Create Folder</Text>
               </TouchableOpacity>
             ) : (
-              // Folder Name Input (when button is clicked)
               <>
                 <TextInput
                   style={styles.folderInput}
@@ -421,7 +452,6 @@ const Home = () => {
         </View>
       </Modal>
 
-      {/* Image Upload Modal */}
       <Modal
         transparent={true}
         visible={imageUploadModalVisible}
@@ -438,16 +468,16 @@ const Home = () => {
             ) : (
               <FlatList
                 data={items}
-                keyExtractor={(item, index) => index.toString()}
+                keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.imageContainer}
-                    onPress={() => setSelectedImage(item.url)} // Set selected image
+                    onPress={() => handleImageClick(item.id, item.url)}
                   >
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
                 )}
-                numColumns={3} // Display 3 images per row
+                numColumns={3}
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
             )}
@@ -470,32 +500,77 @@ const Home = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Image Viewer Modal */}
-        <Modal
-          transparent={true}
-          visible={selectedImage !== null}
-          animationType="fade"
-          onRequestClose={() => setSelectedImage(null)} // Close image viewer
-        >
-          <View style={styles.imageViewerOverlay}>
-            <TouchableOpacity
-              style={styles.closeImageViewer}
-              onPress={() => setSelectedImage(null)} // Close image viewer
-            >
-              <MaterialCommunityIcons name="close" size={30} color="white" />
-            </TouchableOpacity>
-            {selectedImage && (
-              <Image
-                source={{ uri: selectedImage }}
-                style={styles.fullScreenImage}
-              />
-            )}
-          </View>
-        </Modal>
       </Modal>
 
-      {/* Success Modal */}
+      <Modal
+        transparent={true}
+        visible={selectedImageId !== null}
+        animationType="fade"
+        onRequestClose={() => setSelectedImageId(null)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity
+            style={styles.closeImageViewer}
+            onPress={() => setSelectedImageId(null)}
+          >
+            <MaterialCommunityIcons name="close" size={30} color="white" />
+          </TouchableOpacity>
+          {selectedImageUrl && (
+            <Image
+              source={{ uri: selectedImageUrl }}
+              style={styles.fullScreenImage}
+            />
+          )}
+          <TouchableOpacity
+            style={styles.commentIcon}
+            onPress={() => {
+              setCommentModalVisible(true);
+              fetchComments(selectedImageId);
+            }}
+          >
+            <MaterialCommunityIcons name="comment" size={30} color="white" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent={true}
+        visible={commentModalVisible}
+        animationType="fade"
+        onRequestClose={() => setCommentModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Comments</Text>
+            <FlatList
+              data={comments}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.commentItem}>
+                  <Text style={styles.commentText}>{item}</Text>
+                </View>
+              )}
+            />
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Add a comment"
+              value={newComment}
+              onChangeText={setNewComment}
+            />
+            <TouchableOpacity onPress={addComment} style={styles.modalButton}>
+              <MaterialCommunityIcons name="send" size={20} color="white" />
+              <Text style={styles.modalButtonText}>Add Comment</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setCommentModalVisible(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         transparent={true}
         visible={uploadSuccessModalVisible}
@@ -513,7 +588,6 @@ const Home = () => {
         </View>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         transparent={true}
         visible={deleteModalVisible}
@@ -803,6 +877,31 @@ const styles = StyleSheet.create({
     width: "90%",
     height: "90%",
     resizeMode: "contain",
+  },
+  commentIcon: {
+    position: "absolute",
+    bottom: 50,
+    right: 20,
+    zIndex: 10,
+  },
+  commentItem: {
+    backgroundColor: "#444444",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    width: "100%",
+  },
+  commentText: {
+    color: "white",
+    fontSize: 14,
+  },
+  commentInput: {
+    width: "100%",
+    padding: 10,
+    backgroundColor: "#444444",
+    borderRadius: 8,
+    color: "white",
+    marginBottom: 15,
   },
 });
 
