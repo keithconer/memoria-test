@@ -53,6 +53,10 @@ const Home = () => {
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [commentSuccessModalVisible, setCommentSuccessModalVisible] =
     useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<ImageItem[]>([]);
+  const [searchModalVisible, setSearchModalVisible] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -61,6 +65,10 @@ const Home = () => {
     };
     loadFolders();
   }, []);
+
+  const toggleSearch = () => {
+    setIsSearchVisible(!isSearchVisible);
+  };
 
   const fetchFolders = async (): Promise<Folder[]> => {
     try {
@@ -288,14 +296,79 @@ const Home = () => {
     }
   };
 
+  const searchComments = async () => {
+    setLoading(true);
+    try {
+      const foldersSnapshot = await get(ref(database, "folders"));
+      if (foldersSnapshot.exists()) {
+        const foldersData = foldersSnapshot.val();
+        let searchResults: ImageItem[] = [];
+
+        for (const folderId in foldersData) {
+          const imagesSnapshot = await get(
+            ref(database, `folders/${folderId}/images`)
+          );
+
+          if (imagesSnapshot.exists()) {
+            const imagesData = imagesSnapshot.val();
+
+            for (const imageId in imagesData) {
+              const commentsSnapshot = await get(
+                ref(database, `folders/${folderId}/images/${imageId}/comments`)
+              );
+
+              if (commentsSnapshot.exists()) {
+                const commentsData = commentsSnapshot.val();
+                const commentsArray = Object.values(commentsData) as string[];
+
+                if (
+                  commentsArray.some((comment) =>
+                    comment.toLowerCase().includes(searchKeyword.toLowerCase())
+                  )
+                ) {
+                  searchResults.push({
+                    id: imageId,
+                    url: imagesData[imageId].url,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        setSearchResults(searchResults);
+        setSearchModalVisible(true);
+      }
+    } catch (error) {
+      console.error("Error searching comments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.searchContainer}>
+        {isSearchVisible && (
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search comments"
+            value={searchKeyword}
+            onChangeText={setSearchKeyword}
+          />
+        )}
+        <TouchableOpacity style={styles.searchButton} onPress={toggleSearch}>
+          <MaterialCommunityIcons name="magnify" size={30} color="white" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.logoContainer}>
         <Text style={styles.logo}>memoria.</Text>
         <Text style={styles.tagline}>
           Let's keep your memories organized and treasured.
         </Text>
       </View>
+
       <View style={styles.foldersContainer}>
         <Text style={styles.foldersTitle}>
           Here are your lovely memories so far
@@ -655,6 +728,25 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#444444",
+    borderRadius: 8,
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    width: "90%",
+    alignSelf: "center",
+  },
+  searchInput: {
+    flex: 1,
+    padding: 10,
+    color: "white",
+  },
+  searchButton: {
+    padding: 10,
+  },
   fullScreenModalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.8)" },
   fullScreenModalContent: { flex: 1, padding: 10 },
   imageContainer: { margin: 5 },
@@ -673,9 +765,7 @@ const styles = StyleSheet.create({
   },
   fullImage: { width: "90%", height: "90%", resizeMode: "contain" },
   logoContainer: {
-    position: "absolute",
-    top: 40,
-    left: 20,
+    marginTop: 10,
     alignItems: "flex-start",
     marginBottom: 40,
   },
@@ -692,7 +782,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   foldersContainer: {
-    marginTop: 150,
+    marginTop: 10,
     width: "100%",
     paddingHorizontal: 20,
     borderWidth: 1,
