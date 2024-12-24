@@ -57,6 +57,7 @@ const Home = () => {
   const [searchResults, setSearchResults] = useState<ImageItem[]>([]);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [noResultsModalVisible, setNoResultsModalVisible] = useState(false);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -336,8 +337,15 @@ const Home = () => {
           }
         }
 
-        setSearchResults(searchResults);
-        setSearchModalVisible(true);
+        if (searchResults.length > 0) {
+          setSearchResults(searchResults);
+          const firstResult = searchResults[0];
+          setSelectedImageId(firstResult.id);
+          setSelectedImageUrl(firstResult.url);
+          setImageViewerVisible(true);
+        } else {
+          setNoResultsModalVisible(true);
+        }
       }
     } catch (error) {
       console.error("Error searching comments:", error);
@@ -357,7 +365,7 @@ const Home = () => {
             onChangeText={setSearchKeyword}
           />
         )}
-        <TouchableOpacity style={styles.searchButton} onPress={toggleSearch}>
+        <TouchableOpacity style={styles.searchButton} onPress={searchComments}>
           <MaterialCommunityIcons name="magnify" size={30} color="white" />
         </TouchableOpacity>
       </View>
@@ -581,14 +589,14 @@ const Home = () => {
 
       <Modal
         transparent={true}
-        visible={selectedImageId !== null}
+        visible={imageViewerVisible}
         animationType="fade"
-        onRequestClose={() => setSelectedImageId(null)}
+        onRequestClose={() => setImageViewerVisible(false)}
       >
         <View style={styles.imageViewerOverlay}>
           <TouchableOpacity
             style={styles.closeImageViewer}
-            onPress={() => setSelectedImageId(null)}
+            onPress={() => setImageViewerVisible(false)}
           >
             <MaterialCommunityIcons name="close" size={30} color="white" />
           </TouchableOpacity>
