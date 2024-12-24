@@ -55,7 +55,6 @@ const Home = () => {
     useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<ImageItem[]>([]);
-  const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [noResultsModalVisible, setNoResultsModalVisible] = useState(false);
 
@@ -365,7 +364,10 @@ const Home = () => {
             onChangeText={setSearchKeyword}
           />
         )}
-        <TouchableOpacity style={styles.searchButton} onPress={searchComments}>
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={isSearchVisible ? searchComments : toggleSearch}
+        >
           <MaterialCommunityIcons name="magnify" size={30} color="white" />
         </TouchableOpacity>
       </View>
