@@ -57,6 +57,8 @@ const Home = () => {
   const [searchResults, setSearchResults] = useState<ImageItem[]>([]);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [noResultsModalVisible, setNoResultsModalVisible] = useState(false);
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [selectedTransferFolderId, setSelectedTransferFolderId] = useState("");
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -65,6 +67,40 @@ const Home = () => {
     };
     loadFolders();
   }, []);
+
+  const handleTransferImage = async () => {
+    if (!selectedTransferFolderId) return;
+
+    try {
+      const imageRef = ref(
+        database,
+        `folders/${selectedFolderId}/images/${selectedImageId}`
+      );
+      const snapshot = await get(imageRef);
+
+      if (snapshot.exists()) {
+        const imageData = snapshot.val();
+
+        const newImageRef = push(
+          ref(database, `folders/${selectedTransferFolderId}/images`)
+        );
+        await set(newImageRef, imageData);
+
+        await remove(imageRef);
+
+        console.log("Image transferred successfully!");
+
+        const folderData = await fetchFolders();
+        setFolders(folderData);
+        setTransferModalVisible(false);
+        setImageViewerVisible(false);
+      } else {
+        console.log("Image not found in the current folder.");
+      }
+    } catch (error) {
+      console.error("Error transferring image:", error);
+    }
+  };
 
   const toggleSearch = () => {
     setIsSearchVisible(!isSearchVisible);
@@ -617,6 +653,101 @@ const Home = () => {
           >
             <MaterialCommunityIcons name="comment" size={30} color="white" />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.transferIcon}
+            onPress={() => setTransferModalVisible(true)}
+          >
+            <MaterialCommunityIcons
+              name="folder-move"
+              size={30}
+              color="white"
+            />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Transfer Image Modal */}
+      <Modal
+        transparent={true}
+        visible={transferModalVisible}
+        animationType="fade"
+        onRequestClose={() => setTransferModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Transfer Image</Text>
+            <FlatList
+              data={folders}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.folderItem}
+                  onPress={() => setSelectedTransferFolderId(item.id)}
+                >
+                  <Text style={styles.folderText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              onPress={handleTransferImage}
+              style={styles.modalButton}
+            >
+              <MaterialCommunityIcons
+                name="folder-move"
+                size={20}
+                color="white"
+              />
+              <Text style={styles.modalButtonText}>Transfer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setTransferModalVisible(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent={true}
+        visible={transferModalVisible}
+        animationType="fade"
+        onRequestClose={() => setTransferModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Transfer Image</Text>
+            <FlatList
+              data={folders}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.folderItem}
+                  onPress={() => setSelectedTransferFolderId(item.id)}
+                >
+                  <Text style={styles.folderText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              onPress={handleTransferImage}
+              style={styles.modalButton}
+            >
+              <MaterialCommunityIcons
+                name="folder-move"
+                size={20}
+                color="white"
+              />
+              <Text style={styles.modalButtonText}>Transfer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setTransferModalVisible(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
