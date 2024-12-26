@@ -59,6 +59,8 @@ const Home = () => {
   const [noResultsModalVisible, setNoResultsModalVisible] = useState(false);
   const [transferModalVisible, setTransferModalVisible] = useState(false);
   const [selectedTransferFolderId, setSelectedTransferFolderId] = useState("");
+  const [transferSuccessModalVisible, setTransferSuccessModalVisible] =
+    useState(false);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -94,6 +96,7 @@ const Home = () => {
         setFolders(folderData);
         setTransferModalVisible(false);
         setImageViewerVisible(false);
+        setTransferSuccessModalVisible(true);
       } else {
         console.log("Image not found in the current folder.");
       }
@@ -101,6 +104,16 @@ const Home = () => {
       console.error("Error transferring image:", error);
     }
   };
+
+  useEffect(() => {
+    if (transferSuccessModalVisible) {
+      const timer = setTimeout(() => {
+        setTransferSuccessModalVisible(false);
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [transferSuccessModalVisible]);
 
   const toggleSearch = () => {
     setIsSearchVisible(!isSearchVisible);
@@ -751,6 +764,26 @@ const Home = () => {
         </View>
       </Modal>
 
+      {/* Success Modal */}
+      <Modal
+        transparent={true}
+        visible={transferSuccessModalVisible}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.successModalContent}>
+            <MaterialCommunityIcons
+              name="check-circle"
+              size={50}
+              color="green"
+            />
+            <Text style={styles.successText}>
+              Your image has been transferred to the new folder successfully!
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         transparent={true}
         visible={commentModalVisible}
@@ -1102,6 +1135,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
     justifyContent: "center",
+    textAlign: "center",
     borderRadius: 10,
     elevation: 5,
   },
@@ -1109,7 +1143,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "green",
     marginTop: 10,
-    fontWeight: "bold",
+    fontWeight: "normal",
   },
   imageViewerOverlay: {
     flex: 1,
@@ -1130,12 +1164,21 @@ const styles = StyleSheet.create({
     height: "90%",
     resizeMode: "contain",
   },
+
   commentIcon: {
     position: "absolute",
-    bottom: 50,
+    bottom: 20, // Adjust the position as needed
     right: 20,
     zIndex: 10,
   },
+
+  transferIcon: {
+    position: "absolute",
+    bottom: 20, // Make sure this matches the commentIcon to align them
+    right: 70, // Adjust the distance between the icons as needed
+    zIndex: 10,
+  },
+
   commentItem: {
     backgroundColor: "#444444",
     padding: 10,
