@@ -111,6 +111,32 @@ const Home = () => {
     }
   };
 
+  const openSecureContentModal = async () => {
+    setAuthModalVisible(true);
+    setSecureLoading(true);
+
+    try {
+      const imagesRef = ref(database, "folders/secure/images");
+      const snapshot = await get(imagesRef);
+
+      if (snapshot.exists()) {
+        const imagesData = snapshot.val();
+        const imageItems = Object.keys(imagesData).map((key) => ({
+          id: key,
+          url: imagesData[key].url,
+        }));
+        setSecureImages(imageItems);
+      } else {
+        setSecureImages([]);
+      }
+    } catch (error) {
+      console.error("Error fetching secure images:", error);
+      setSecureImages([]);
+    } finally {
+      setSecureLoading(false);
+    }
+  };
+
   const handleSecureImageClick = async (imageId: string, imageUrl: string) => {
     setSelectedSecureImageId(imageId);
     setSelectedSecureImageUrl(imageUrl);
@@ -145,7 +171,7 @@ const Home = () => {
 
     if (result.success) {
       alert("Authentication successful!");
-      setAuthModalVisible(true); // Show the modal for secure content
+      await openSecureContentModal(); // Open the secure content modal and fetch images
     } else {
       alert("Authentication failed");
     }
@@ -207,11 +233,19 @@ const Home = () => {
 
       if (snapshot.exists()) {
         const folders = snapshot.val();
-        return Object.keys(folders).map((key) => ({
-          id: key,
-          name: folders[key].name,
-          createdAt: folders[key].createdAt,
-        }));
+        return Object.keys(folders)
+          .map((key) => {
+            const folder = folders[key];
+            // Ensure the folder has a name and does not include the secure folder
+            if (folder.name && key !== "secure") {
+              return {
+                id: key,
+                name: folder.name,
+                createdAt: folder.createdAt,
+              };
+            }
+          })
+          .filter(Boolean); // Remove any undefined entries
       } else {
         console.log("No folders found.");
         return [];
