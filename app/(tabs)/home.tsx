@@ -67,6 +67,13 @@ const Home = () => {
   const [secureLoading, setSecureLoading] = useState(false);
   const [secureImages, setSecureImages] = useState<ImageItem[]>([]);
 
+  const [secureImageViewerVisible, setSecureImageViewerVisible] =
+    useState(false);
+  const [selectedSecureImageId, setSelectedSecureImageId] = useState<
+    string | null
+  >(null);
+  const [selectedSecureImageUrl, setSelectedSecureImageUrl] = useState("");
+
   useEffect(() => {
     const loadFolders = async () => {
       const folderData = await fetchFolders();
@@ -74,6 +81,12 @@ const Home = () => {
     };
     loadFolders();
   }, []);
+
+  const handleSecureImageClick = (imageId: string, imageUrl: string) => {
+    setSelectedSecureImageId(imageId);
+    setSelectedSecureImageUrl(imageUrl);
+    setSecureImageViewerVisible(true);
+  };
 
   const authenticateFingerprint = async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -946,7 +959,10 @@ const Home = () => {
                 data={secureImages}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.imageContainer}>
+                  <TouchableOpacity
+                    style={styles.imageContainer}
+                    onPress={() => handleSecureImageClick(item.id, item.url)}
+                  >
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
                 )}
@@ -975,6 +991,38 @@ const Home = () => {
               <Text style={styles.cancelButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
+
+      {/* Secure Image Viewer Modal */}
+      <Modal
+        transparent={true}
+        visible={secureImageViewerVisible}
+        animationType="fade"
+        onRequestClose={() => setSecureImageViewerVisible(false)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity
+            style={styles.closeImageViewer}
+            onPress={() => setSecureImageViewerVisible(false)}
+          >
+            <MaterialCommunityIcons name="close" size={30} color="white" />
+          </TouchableOpacity>
+          {selectedSecureImageUrl && (
+            <Image
+              source={{ uri: selectedSecureImageUrl }}
+              style={styles.fullScreenImage}
+            />
+          )}
+          <TouchableOpacity
+            style={styles.commentIcon}
+            onPress={() => {
+              setCommentModalVisible(true);
+              fetchComments(selectedSecureImageId);
+            }}
+          >
+            <MaterialCommunityIcons name="comment" size={30} color="white" />
+          </TouchableOpacity>
         </View>
       </Modal>
 
