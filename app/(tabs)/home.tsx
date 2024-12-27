@@ -15,6 +15,7 @@ import { ref, get, push, set, remove, update } from "firebase/database";
 import { database } from "./firebaseConfig";
 import * as ImagePicker from "expo-image-picker";
 import { uploadImageToCloudinary } from "./cloudinaryClient";
+import * as LocalAuthentication from "expo-local-authentication";
 
 interface Folder {
   id: string;
@@ -62,6 +63,8 @@ const Home = () => {
   const [transferSuccessModalVisible, setTransferSuccessModalVisible] =
     useState(false);
 
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+
   useEffect(() => {
     const loadFolders = async () => {
       const folderData = await fetchFolders();
@@ -69,6 +72,33 @@ const Home = () => {
     };
     loadFolders();
   }, []);
+
+  const authenticateFingerprint = async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    if (!hasHardware) {
+      alert("Your device does not support biometric authentication");
+      return;
+    }
+
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    if (!isEnrolled) {
+      alert("No biometric authentication methods are registered");
+      return;
+    }
+
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Authenticate",
+      fallbackLabel: "Enter Password",
+      disableDeviceFallback: true,
+    });
+
+    if (result.success) {
+      alert("Authentication successful!");
+      setAuthModalVisible(true); // Show the modal for secure content
+    } else {
+      alert("Authentication failed");
+    }
+  };
 
   const handleTransferImage = async () => {
     if (!selectedTransferFolderId) return;
@@ -502,9 +532,17 @@ const Home = () => {
         />
       </View>
 
-      <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
-        <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
-      </TouchableOpacity>
+      <View style={styles.iconContainer}>
+        <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
+          <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.floatingButton}
+          onPress={authenticateFingerprint}
+        >
+          <MaterialCommunityIcons name="fingerprint" size={30} color="white" />
+        </TouchableOpacity>
+      </View>
 
       <Modal
         transparent={true}
@@ -858,6 +896,28 @@ const Home = () => {
 
       <Modal
         transparent={true}
+        visible={authModalVisible}
+        animationType="fade"
+        onRequestClose={() => setAuthModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Secure Content</Text>
+            <Text style={styles.modalText}>
+              You have accessed the secure area.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setAuthModalVisible(false)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent={true}
         visible={deleteModalVisible}
         animationType="fade"
         onRequestClose={() => setDeleteModalVisible(false)}
@@ -901,6 +961,19 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     width: "100%",
     height: "100%",
+  },
+  iconContainer: {
+    flexDirection: "row",
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+  },
+  floatingButton: {
+    backgroundColor: "#333333", // or any color you prefer
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginHorizontal: 10, // Add horizontal margin to separate the buttons
   },
   searchContainer: {
     flexDirection: "row",
@@ -1013,18 +1086,6 @@ const styles = StyleSheet.create({
   },
   folderActionButton: {
     marginLeft: 10,
-  },
-  floatingButton: {
-    position: "absolute",
-    bottom: 40,
-    right: 40,
-    backgroundColor: "#333333",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    elevation: 8,
-    justifyContent: "center",
-    alignItems: "center",
   },
   modalContainer: {
     flex: 1,
