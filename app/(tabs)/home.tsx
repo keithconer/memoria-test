@@ -963,25 +963,31 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   iconContainer: {
-    flexDirection: "row",
+    flexDirection: "column",
     position: "absolute",
     bottom: 20,
     right: 20,
   },
   floatingButton: {
-    backgroundColor: "#333333", // or any color you prefer
+    backgroundColor: "#333333",
     borderRadius: 25,
+    marginBottom: 10,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    marginHorizontal: 10, // Add horizontal margin to separate the buttons
+    marginHorizontal: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#444444",
     borderRadius: 8,
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 5,
+    marginBottom: 5,
     paddingHorizontal: 10,
     width: "90%",
     alignSelf: "center",
@@ -1026,10 +1032,9 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: "white",
     marginTop: 10,
-    marginBottom: 30,
   },
   foldersContainer: {
-    marginTop: 10,
+    marginTop: 5,
     width: "100%",
     paddingHorizontal: 20,
     borderWidth: 1,
@@ -1045,7 +1050,7 @@ const styles = StyleSheet.create({
     overflow: "scroll", // Makes the content scrollable when it exceeds the maxHeight
   },
   foldersTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "medium",
     color: "white",
     marginBottom: 20,
@@ -1064,7 +1069,7 @@ const styles = StyleSheet.create({
   },
   folderText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 14,
   },
   folderInput: {
     width: "100%",
