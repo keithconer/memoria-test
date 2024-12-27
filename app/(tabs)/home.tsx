@@ -82,10 +82,46 @@ const Home = () => {
     loadFolders();
   }, []);
 
-  const handleSecureImageClick = (imageId: string, imageUrl: string) => {
+  const handleImageLongPress = async (imageId: string, folderId: string) => {
+    const confirmDelete = confirm(
+      "Are you sure you want to delete this image?"
+    );
+    if (confirmDelete) {
+      try {
+        const imageRef = ref(database, `folders/${folderId}/images/${imageId}`);
+        await remove(imageRef);
+        console.log("Image deleted successfully");
+
+        // Refresh the images list
+        const imagesRef = ref(database, `folders/${folderId}/images`);
+        const snapshot = await get(imagesRef);
+        if (snapshot.exists()) {
+          const images = snapshot.val();
+          const imageItems = Object.keys(images).map((key) => ({
+            id: key,
+            url: images[key].url,
+          }));
+          setItems(imageItems);
+        } else {
+          setItems([]);
+        }
+      } catch (error) {
+        console.error("Error deleting image:", error);
+      }
+    }
+  };
+
+  const handleSecureImageClick = async (imageId: string, imageUrl: string) => {
     setSelectedSecureImageId(imageId);
     setSelectedSecureImageUrl(imageUrl);
     setSecureImageViewerVisible(true);
+    // No need to fetch comments
+  };
+
+  const handleCommentIconPress = async (imageId: string) => {
+    setSelectedImageId(imageId);
+    await fetchComments(imageId);
+    setCommentModalVisible(true);
   };
 
   const authenticateFingerprint = async () => {
@@ -351,6 +387,7 @@ const Home = () => {
       }
     }
   };
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -379,16 +416,20 @@ const Home = () => {
 
   const fetchComments = async (imageId: string) => {
     try {
+      const folderId =
+        selectedFolderId === "secure" ? "secure" : selectedFolderId;
       const commentRef = ref(
         database,
-        `folders/${selectedFolderId}/images/${imageId}/comments`
+        `folders/${folderId}/images/${imageId}/comments`
       );
       const snapshot = await get(commentRef);
 
       if (snapshot.exists()) {
         const commentsData = snapshot.val();
+        console.log("Fetched comments: ", commentsData);
         setComments(Object.values(commentsData));
       } else {
+        console.log("No comments found.");
         setComments([]);
       }
     } catch (error) {
@@ -401,11 +442,10 @@ const Home = () => {
     if (!newComment.trim()) return;
 
     try {
+      const folderId =
+        selectedFolderId === "secure" ? "secure" : selectedFolderId;
       const commentRef = push(
-        ref(
-          database,
-          `folders/${selectedFolderId}/images/${selectedImageId}/comments`
-        )
+        ref(database, `folders/${folderId}/images/${selectedImageId}/comments`)
       );
       await set(commentRef, newComment);
 
@@ -429,6 +469,10 @@ const Home = () => {
         let searchResults: ImageItem[] = [];
 
         for (const folderId in foldersData) {
+          if (folderId === "secure") {
+            continue; // Skip the secure folder
+          }
+
           const imagesSnapshot = await get(
             ref(database, `folders/${folderId}/images`)
           );
@@ -495,14 +539,12 @@ const Home = () => {
           <MaterialCommunityIcons name="magnify" size={30} color="white" />
         </TouchableOpacity>
       </View>
-
       <View style={styles.logoContainer}>
         <Text style={styles.logo}>memoria.</Text>
         <Text style={styles.tagline}>
           Let's keep your memories organized and treasured.
         </Text>
       </View>
-
       <View style={styles.foldersContainer}>
         <Text style={styles.foldersTitle}>
           Here are your lovely memories so far
@@ -576,7 +618,6 @@ const Home = () => {
           }}
         />
       </View>
-
       <View style={styles.iconContainer}>
         <TouchableOpacity style={styles.floatingButton} onPress={toggleModal}>
           <MaterialCommunityIcons name="folder-plus" size={30} color="white" />
@@ -588,7 +629,6 @@ const Home = () => {
           <MaterialCommunityIcons name="fingerprint" size={30} color="white" />
         </TouchableOpacity>
       </View>
-
       <Modal
         transparent={true}
         visible={renameModalVisible}
@@ -623,7 +663,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={modalVisible}
@@ -692,6 +731,9 @@ const Home = () => {
                   <TouchableOpacity
                     style={styles.imageContainer}
                     onPress={() => handleImageClick(item.id, item.url)}
+                    onLongPress={() =>
+                      handleImageLongPress(item.id, selectedFolderId)
+                    }
                   >
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
@@ -761,7 +803,6 @@ const Home = () => {
           </TouchableOpacity>
         </View>
       </Modal>
-
       {/* Transfer Image Modal */}
       <Modal
         transparent={true}
@@ -804,7 +845,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={transferModalVisible}
@@ -846,7 +886,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       {/* Success Modal */}
       <Modal
         transparent={true}
@@ -866,7 +905,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={commentModalVisible}
@@ -904,7 +942,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={commentSuccessModalVisible}
@@ -921,7 +958,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={uploadSuccessModalVisible}
@@ -938,7 +974,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={authModalVisible}
@@ -995,6 +1030,7 @@ const Home = () => {
       </Modal>
 
       {/* Secure Image Viewer Modal */}
+
       <Modal
         transparent={true}
         visible={secureImageViewerVisible}
@@ -1014,15 +1050,6 @@ const Home = () => {
               style={styles.fullScreenImage}
             />
           )}
-          <TouchableOpacity
-            style={styles.commentIcon}
-            onPress={() => {
-              setCommentModalVisible(true);
-              fetchComments(selectedSecureImageId);
-            }}
-          >
-            <MaterialCommunityIcons name="comment" size={30} color="white" />
-          </TouchableOpacity>
         </View>
       </Modal>
 
