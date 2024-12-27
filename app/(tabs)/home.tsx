@@ -64,6 +64,8 @@ const Home = () => {
     useState(false);
 
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [secureLoading, setSecureLoading] = useState(false);
+  const [secureImages, setSecureImages] = useState<ImageItem[]>([]);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -294,32 +296,48 @@ const Home = () => {
     setImageUploadModalVisible(true);
   };
 
-  const uploadImage = async (uri: string) => {
+  const uploadImage = async (uri, folderId) => {
     try {
-      setLoading(true);
+      if (folderId === "secure") {
+        setSecureLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      console.log(`Uploading image to Cloudinary: ${uri}`);
       const imageUrl = await uploadImageToCloudinary(uri);
       if (!imageUrl) {
         throw new Error("Failed to get image URL from Cloudinary");
       }
 
-      const imageRef = push(
-        ref(database, `folders/${selectedFolderId}/images`)
-      );
+      console.log(`Image uploaded to Cloudinary, URL: ${imageUrl}`);
+      const imageRef = push(ref(database, `folders/${folderId}/images`));
       await set(imageRef, { url: imageUrl });
 
-      const folderData = await fetchFolders();
-      setFolders(folderData);
-      setImageUploadModalVisible(false);
+      const newImage = { id: imageRef.key, url: imageUrl };
+      console.log(`Image saved to Firebase, ID: ${imageRef.key}`);
+
+      if (folderId === "secure") {
+        setSecureImages((prevImages) => [...prevImages, newImage]);
+        console.log("Secure image list updated");
+      } else {
+        setItems((prevImages) => [...prevImages, newImage]);
+        setImageUploadModalVisible(false);
+        console.log("Public image list updated");
+      }
 
       setUploadSuccessModalVisible(true);
       setTimeout(() => setUploadSuccessModalVisible(false), 2000);
     } catch (error) {
       console.error("Error uploading image:", error);
     } finally {
-      setLoading(false);
+      if (folderId === "secure") {
+        setSecureLoading(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
-
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -328,7 +346,21 @@ const Home = () => {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      await uploadImage(result.assets[0].uri);
+      console.log("Image picked for public folder:", result.assets[0].uri);
+      await uploadImage(result.assets[0].uri, selectedFolderId);
+    }
+  };
+
+  const pickSecureImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      console.log("Image picked for secure folder:", result.assets[0].uri);
+      await uploadImage(result.assets[0].uri, "secure");
     }
   };
 
@@ -906,6 +938,36 @@ const Home = () => {
             <Text style={styles.modalText}>
               You have accessed the secure area.
             </Text>
+
+            {secureLoading ? (
+              <Text style={styles.loading}>Loading...</Text>
+            ) : (
+              <FlatList
+                data={secureImages}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.imageContainer}>
+                    <Image source={{ uri: item.url }} style={styles.image} />
+                  </TouchableOpacity>
+                )}
+                numColumns={3}
+                columnWrapperStyle={{ justifyContent: "space-between" }}
+              />
+            )}
+
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={pickSecureImage}
+            >
+              <MaterialCommunityIcons
+                name="image-plus"
+                size={20}
+                color="white"
+                style={styles.uploadIcon}
+              />
+              <Text style={styles.uploadButtonText}>Upload Image</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => setAuthModalVisible(false)}
               style={styles.cancelButton}
