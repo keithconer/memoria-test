@@ -974,6 +974,7 @@ const Home = () => {
           </View>
         </View>
       </Modal>
+
       <Modal
         transparent={true}
         visible={authModalVisible}
@@ -981,7 +982,7 @@ const Home = () => {
         onRequestClose={() => setAuthModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
+          <View style={styles.fullScreenModalContent}>
             <Text style={styles.modalTitle}>Secure Content</Text>
             <Text style={styles.modalText}>
               You have accessed the secure area.
@@ -1001,7 +1002,7 @@ const Home = () => {
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
                 )}
-                numColumns={3}
+                numColumns={4} // Set the number of columns to 4
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
             )}
@@ -1285,8 +1286,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#333333",
     padding: 20,
     borderRadius: 8,
-    width: "90%",
-    height: "90%",
+    width: "95%", // Increase the width
+    height: "95%", // Increase the height
     alignItems: "center",
   },
   modalHeader: {
