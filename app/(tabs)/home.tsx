@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   TextInput,
   Image,
+  Alert,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ref, get, push, set, remove, update } from "firebase/database";
@@ -1434,7 +1435,7 @@ const styles = StyleSheet.create({
     backgroundColor: "red",
     padding: 15,
     borderRadius: 8,
-    width: "90%",
+    width: "100%",
     alignItems: "center",
     marginVertical: 10,
   },
