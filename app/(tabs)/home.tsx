@@ -796,6 +796,7 @@ const Home = () => {
                       selectedImagesForDeletion.includes(item.id) &&
                         styles.selectedImageContainer,
                     ]}
+                    onPress={() => handleImageClick(item.id, item.url)}
                     onLongPress={() => handleImageLongPress(item.id)}
                   >
                     <Image source={{ uri: item.url }} style={styles.image} />
@@ -876,6 +877,7 @@ const Home = () => {
           </TouchableOpacity>
         </View>
       </Modal>
+
       {/* Transfer Image Modal */}
       <Modal
         transparent={true}
