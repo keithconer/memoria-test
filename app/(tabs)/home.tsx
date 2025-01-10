@@ -73,6 +73,12 @@ const Home = () => {
     string | null
   >(null);
   const [selectedSecureImageUrl, setSelectedSecureImageUrl] = useState("");
+  const [longPressedImageId, setLongPressedImageId] = useState<string | null>(
+    null
+  );
+  const [selectedImageForDeletion, setSelectedImageForDeletion] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -82,33 +88,56 @@ const Home = () => {
     loadFolders();
   }, []);
 
-  const handleImageLongPress = async (imageId: string, folderId: string) => {
-    const confirmDelete = confirm(
-      "Are you sure you want to delete this image?"
-    );
-    if (confirmDelete) {
-      try {
-        const imageRef = ref(database, `folders/${folderId}/images/${imageId}`);
-        await remove(imageRef);
-        console.log("Image deleted successfully");
+  const handleImageLongPress = (imageId: string) => {
+    console.log("Long press detected on image:", imageId);
+    setSelectedImageForDeletion(imageId);
+  };
 
-        // Refresh the images list
-        const imagesRef = ref(database, `folders/${folderId}/images`);
-        const snapshot = await get(imagesRef);
-        if (snapshot.exists()) {
-          const images = snapshot.val();
-          const imageItems = Object.keys(images).map((key) => ({
-            id: key,
-            url: images[key].url,
-          }));
-          setItems(imageItems);
-        } else {
-          setItems([]);
-        }
-      } catch (error) {
-        console.error("Error deleting image:", error);
-      }
-    }
+  const handleDeleteImage = async (imageId: string) => {
+    Alert.alert(
+      "Delete Image",
+      "Are you sure you want to delete this image?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "OK",
+          onPress: async () => {
+            try {
+              const imageRef = ref(
+                database,
+                `folders/${selectedFolderId}/images/${imageId}`
+              );
+              await remove(imageRef);
+              console.log("Image deleted successfully");
+
+              // Refresh the images list
+              const imagesRef = ref(
+                database,
+                `folders/${selectedFolderId}/images`
+              );
+              const snapshot = await get(imagesRef);
+              if (snapshot.exists()) {
+                const images = snapshot.val();
+                const imageItems = Object.keys(images).map((key) => ({
+                  id: key,
+                  url: images[key].url,
+                }));
+                setItems(imageItems);
+              } else {
+                setItems([]);
+              }
+              setSelectedImageForDeletion(null); // Clear selection after deletion
+            } catch (error) {
+              console.error("Error deleting image:", error);
+            }
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   const openSecureContentModal = async () => {
@@ -588,20 +617,17 @@ const Home = () => {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             const folderDate = new Date(item.createdAt);
-
             const formattedDate = folderDate.toLocaleDateString("en-US", {
               weekday: "long",
               year: "numeric",
               month: "long",
               day: "numeric",
             });
-
             const formattedTime = folderDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
               hour12: true,
             });
-
             return (
               <View style={styles.folderItem}>
                 <View style={styles.folderTextContainer}>
@@ -610,7 +636,6 @@ const Home = () => {
                     style={styles.folderDate}
                   >{`${formattedDate}, ${formattedTime}`}</Text>
                 </View>
-
                 <View style={styles.folderActions}>
                   <TouchableOpacity
                     onPress={() => handleFolderClick(item.id)}
@@ -672,14 +697,12 @@ const Home = () => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Rename Folder</Text>
-
             <TextInput
               style={styles.folderInput}
               placeholder="Enter new folder name"
               value={newFolderName}
               onChangeText={setNewFolderName}
             />
-
             <TouchableOpacity
               onPress={handleRenameFolder}
               style={styles.modalButton}
@@ -687,7 +710,6 @@ const Home = () => {
               <MaterialCommunityIcons name="folder" size={20} color="white" />
               <Text style={styles.modalButtonText}>Rename</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => setRenameModalVisible(false)}
               style={styles.cancelButton}
@@ -706,7 +728,6 @@ const Home = () => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Create a Folder</Text>
-
             {!isFolderNameVisible ? (
               <TouchableOpacity
                 onPress={() => setIsFolderNameVisible(true)}
@@ -723,7 +744,6 @@ const Home = () => {
                   value={folderName}
                   onChangeText={setFolderName}
                 />
-
                 <TouchableOpacity
                   onPress={handleCreateFolder}
                   style={styles.modalButton}
@@ -743,7 +763,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={imageUploadModalVisible}
@@ -754,7 +773,6 @@ const Home = () => {
           <View style={styles.fullScreenModalContent}>
             <Text style={styles.modalTitle}>{selectedFolderName}</Text>
             <Text style={styles.modalSubtitle}>{selectedFolderDate}</Text>
-
             {loading ? (
               <Text style={styles.loading}>Loading...</Text>
             ) : (
@@ -763,11 +781,12 @@ const Home = () => {
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={styles.imageContainer}
-                    onPress={() => handleImageClick(item.id, item.url)}
-                    onLongPress={() =>
-                      handleImageLongPress(item.id, selectedFolderId)
-                    }
+                    style={[
+                      styles.imageContainer,
+                      selectedImageForDeletion === item.id &&
+                        styles.selectedImageContainer,
+                    ]}
+                    onLongPress={() => handleImageLongPress(item.id)}
                   >
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
@@ -776,7 +795,18 @@ const Home = () => {
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
             )}
-
+            {selectedImageForDeletion && (
+              <View style={styles.deleteButtonContainer}>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteImage(selectedImageForDeletion)}
+                >
+                  <Text style={styles.deleteButtonText}>
+                    Delete Selected Image
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
               <MaterialCommunityIcons
                 name="image-plus"
@@ -786,7 +816,6 @@ const Home = () => {
               />
               <Text style={styles.uploadButtonText}>Upload Image</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => setImageUploadModalVisible(false)}
@@ -796,7 +825,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={imageViewerVisible}
@@ -879,48 +907,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-      <Modal
-        transparent={true}
-        visible={transferModalVisible}
-        animationType="fade"
-        onRequestClose={() => setTransferModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Transfer Image</Text>
-            <FlatList
-              data={folders}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.folderItem}
-                  onPress={() => setSelectedTransferFolderId(item.id)}
-                >
-                  <Text style={styles.folderText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              onPress={handleTransferImage}
-              style={styles.modalButton}
-            >
-              <MaterialCommunityIcons
-                name="folder-move"
-                size={20}
-                color="white"
-              />
-              <Text style={styles.modalButtonText}>Transfer</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setTransferModalVisible(false)}
-              style={styles.cancelButton}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-      {/* Success Modal */}
       <Modal
         transparent={true}
         visible={transferSuccessModalVisible}
@@ -1008,7 +994,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={authModalVisible}
@@ -1021,7 +1006,6 @@ const Home = () => {
             <Text style={styles.modalText}>
               You have accessed the secure area.
             </Text>
-
             {secureLoading ? (
               <Text style={styles.loading}>Loading...</Text>
             ) : (
@@ -1036,11 +1020,10 @@ const Home = () => {
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
                 )}
-                numColumns={4} // Set the number of columns to 4
+                numColumns={4}
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
             )}
-
             <TouchableOpacity
               style={styles.uploadButton}
               onPress={pickSecureImage}
@@ -1053,7 +1036,6 @@ const Home = () => {
               />
               <Text style={styles.uploadButtonText}>Upload Image</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => setAuthModalVisible(false)}
               style={styles.cancelButton}
@@ -1063,9 +1045,6 @@ const Home = () => {
           </View>
         </View>
       </Modal>
-
-      {/* Secure Image Viewer Modal */}
-
       <Modal
         transparent={true}
         visible={secureImageViewerVisible}
@@ -1087,7 +1066,6 @@ const Home = () => {
           )}
         </View>
       </Modal>
-
       <Modal
         transparent={true}
         visible={deleteModalVisible}
@@ -1101,7 +1079,6 @@ const Home = () => {
               Are you sure you want to delete this folder and all of the images
               inside it?
             </Text>
-
             <TouchableOpacity
               onPress={handleDeleteFolder}
               style={styles.modalButton}
@@ -1109,7 +1086,6 @@ const Home = () => {
               <MaterialCommunityIcons name="delete" size={20} color="white" />
               <Text style={styles.modalButtonText}>Delete Folder</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => setDeleteModalVisible(false)}
               style={styles.cancelButton}
@@ -1427,6 +1403,10 @@ const styles = StyleSheet.create({
   commentText: {
     color: "white",
     fontSize: 14,
+  },
+  selectedImageContainer: {
+    borderColor: "red",
+    borderWidth: 2,
   },
   commentInput: {
     width: "100%",
