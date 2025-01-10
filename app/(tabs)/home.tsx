@@ -89,7 +89,7 @@ const Home = () => {
     loadFolders();
   }, []);
 
-  const handleImageLongPress = (imageId: string) => {
+  const handleImageLongPress = (imageId: string, isSecure: boolean = false) => {
     console.log("Long press detected on image:", imageId);
     setSelectedImagesForDeletion((prevSelected) => {
       if (prevSelected.includes(imageId)) {
@@ -120,11 +120,13 @@ const Home = () => {
 
   const confirmDeleteImages = async () => {
     try {
+      const isSecureFolder = selectedFolderId === "secure";
+      const folderPath = isSecureFolder
+        ? "folders/secure"
+        : `folders/${selectedFolderId}`;
+
       const promises = selectedImagesForDeletion.map((imageId) => {
-        const imageRef = ref(
-          database,
-          `folders/${selectedFolderId}/images/${imageId}`
-        );
+        const imageRef = ref(database, `${folderPath}/images/${imageId}`);
         return remove(imageRef);
       });
 
@@ -132,7 +134,7 @@ const Home = () => {
       console.log("Images deleted successfully");
 
       // Refresh the images list
-      const imagesRef = ref(database, `folders/${selectedFolderId}/images`);
+      const imagesRef = ref(database, `${folderPath}/images`);
       const snapshot = await get(imagesRef);
       if (snapshot.exists()) {
         const images = snapshot.val();
@@ -140,9 +142,17 @@ const Home = () => {
           id: key,
           url: images[key].url,
         }));
-        setItems(imageItems);
+        if (isSecureFolder) {
+          setSecureImages(imageItems);
+        } else {
+          setItems(imageItems);
+        }
       } else {
-        setItems([]);
+        if (isSecureFolder) {
+          setSecureImages([]);
+        } else {
+          setItems([]);
+        }
       }
       setSelectedImagesForDeletion([]); // Clear selection after deletion
     } catch (error) {
@@ -151,6 +161,7 @@ const Home = () => {
   };
 
   const openSecureContentModal = async () => {
+    setSelectedFolderId("secure"); // Ensure this is set when accessing secure content
     setAuthModalVisible(true);
     setSecureLoading(true);
 
@@ -1007,6 +1018,7 @@ const Home = () => {
           </View>
         </View>
       </Modal>
+
       <Modal
         transparent={true}
         visible={authModalVisible}
@@ -1027,8 +1039,13 @@ const Home = () => {
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={styles.imageContainer}
+                    style={[
+                      styles.imageContainer,
+                      selectedImagesForDeletion.includes(item.id) &&
+                        styles.selectedImageContainer,
+                    ]}
                     onPress={() => handleSecureImageClick(item.id, item.url)}
+                    onLongPress={() => handleImageLongPress(item.id, true)}
                   >
                     <Image source={{ uri: item.url }} style={styles.image} />
                   </TouchableOpacity>
@@ -1036,6 +1053,18 @@ const Home = () => {
                 numColumns={4}
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
+            )}
+            {selectedImagesForDeletion.length > 0 && (
+              <View style={styles.deleteButtonContainer}>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={handleDeleteImages}
+                >
+                  <Text style={styles.deleteButtonText}>
+                    Delete Selected Images
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
             <TouchableOpacity
               style={styles.uploadButton}
@@ -1058,6 +1087,7 @@ const Home = () => {
           </View>
         </View>
       </Modal>
+
       <Modal
         transparent={true}
         visible={secureImageViewerVisible}
