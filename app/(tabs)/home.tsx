@@ -76,9 +76,9 @@ const Home = () => {
   const [longPressedImageId, setLongPressedImageId] = useState<string | null>(
     null
   );
-  const [selectedImageForDeletion, setSelectedImageForDeletion] = useState<
-    string | null
-  >(null);
+  const [selectedImagesForDeletion, setSelectedImagesForDeletion] = useState<
+    string[]
+  >([]);
 
   useEffect(() => {
     const loadFolders = async () => {
@@ -90,13 +90,19 @@ const Home = () => {
 
   const handleImageLongPress = (imageId: string) => {
     console.log("Long press detected on image:", imageId);
-    setSelectedImageForDeletion(imageId);
+    setSelectedImagesForDeletion((prevSelected) => {
+      if (prevSelected.includes(imageId)) {
+        return prevSelected.filter((id) => id !== imageId);
+      } else {
+        return [...prevSelected, imageId];
+      }
+    });
   };
 
-  const handleDeleteImage = async (imageId: string) => {
+  const handleDeleteImages = () => {
     Alert.alert(
-      "Delete Image",
-      "Are you sure you want to delete this image?",
+      "Delete Images",
+      "Are you sure you want to delete the selected images?",
       [
         {
           text: "Cancel",
@@ -104,40 +110,43 @@ const Home = () => {
         },
         {
           text: "OK",
-          onPress: async () => {
-            try {
-              const imageRef = ref(
-                database,
-                `folders/${selectedFolderId}/images/${imageId}`
-              );
-              await remove(imageRef);
-              console.log("Image deleted successfully");
-
-              // Refresh the images list
-              const imagesRef = ref(
-                database,
-                `folders/${selectedFolderId}/images`
-              );
-              const snapshot = await get(imagesRef);
-              if (snapshot.exists()) {
-                const images = snapshot.val();
-                const imageItems = Object.keys(images).map((key) => ({
-                  id: key,
-                  url: images[key].url,
-                }));
-                setItems(imageItems);
-              } else {
-                setItems([]);
-              }
-              setSelectedImageForDeletion(null); // Clear selection after deletion
-            } catch (error) {
-              console.error("Error deleting image:", error);
-            }
-          },
+          onPress: confirmDeleteImages,
         },
       ],
       { cancelable: false }
     );
+  };
+
+  const confirmDeleteImages = async () => {
+    try {
+      const promises = selectedImagesForDeletion.map((imageId) => {
+        const imageRef = ref(
+          database,
+          `folders/${selectedFolderId}/images/${imageId}`
+        );
+        return remove(imageRef);
+      });
+
+      await Promise.all(promises);
+      console.log("Images deleted successfully");
+
+      // Refresh the images list
+      const imagesRef = ref(database, `folders/${selectedFolderId}/images`);
+      const snapshot = await get(imagesRef);
+      if (snapshot.exists()) {
+        const images = snapshot.val();
+        const imageItems = Object.keys(images).map((key) => ({
+          id: key,
+          url: images[key].url,
+        }));
+        setItems(imageItems);
+      } else {
+        setItems([]);
+      }
+      setSelectedImagesForDeletion([]); // Clear selection after deletion
+    } catch (error) {
+      console.error("Error deleting images:", error);
+    }
   };
 
   const openSecureContentModal = async () => {
@@ -783,7 +792,7 @@ const Home = () => {
                   <TouchableOpacity
                     style={[
                       styles.imageContainer,
-                      selectedImageForDeletion === item.id &&
+                      selectedImagesForDeletion.includes(item.id) &&
                         styles.selectedImageContainer,
                     ]}
                     onLongPress={() => handleImageLongPress(item.id)}
@@ -795,14 +804,14 @@ const Home = () => {
                 columnWrapperStyle={{ justifyContent: "space-between" }}
               />
             )}
-            {selectedImageForDeletion && (
+            {selectedImagesForDeletion.length > 0 && (
               <View style={styles.deleteButtonContainer}>
                 <TouchableOpacity
                   style={styles.deleteButton}
-                  onPress={() => handleDeleteImage(selectedImageForDeletion)}
+                  onPress={handleDeleteImages}
                 >
                   <Text style={styles.deleteButtonText}>
-                    Delete Selected Image
+                    Delete Selected Images
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -825,6 +834,7 @@ const Home = () => {
           </View>
         </View>
       </Modal>
+
       <Modal
         transparent={true}
         visible={imageViewerVisible}
@@ -1415,6 +1425,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: "white",
     marginBottom: 15,
+  },
+  deleteButtonContainer: {
+    padding: 10,
+    alignItems: "center",
+  },
+  deleteButton: {
+    backgroundColor: "red",
+    padding: 15,
+    borderRadius: 8,
+    width: "90%",
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  deleteButtonText: {
+    color: "white",
+    fontSize: 16,
   },
 });
 
